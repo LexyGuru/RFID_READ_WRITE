@@ -304,6 +304,16 @@
                 <label for="phone-number-input">Telefonszám:</label>
                 <input type="text" id="phone-number-input" placeholder="+36 20 123 4567">
             </div>
+            
+            <!-- Password mező (ha password védelem aktív) -->
+            <div class="input-group" id="write-password-group">
+                <label for="write-password-input">🔒 Password (ha password védelem aktív):</label>
+                <input type="text" id="write-password-input" placeholder="Pl: FFFFFFFF vagy FF FF FF FF (opcionális)">
+                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                    Ha a címkére password védelem van beállítva, add meg a password-t itt az íráshoz.
+                </small>
+            </div>
+            
             <button id="write-btn" onclick="writeNdef()">
                 NDEF üzenet írása NTAG216 címkére
             </button>
@@ -321,6 +331,25 @@
             </button>
             <div id="read-status" class="status"></div>
             <div id="read-tag-info" class="tag-info" style="display: none;"></div>
+        </div>
+
+        <!-- Password védelem -->
+        <div class="section">
+            <div class="section-title">🔒 Password védelem beállítása</div>
+            <div class="input-group">
+                <label for="password-input">Jelszó (hex vagy decimális):</label>
+                <input type="text" id="password-input" placeholder="00000000 vagy 0 (hex: 8 karakter, dec: szám)">
+                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                    Példák: "00000000" (hex), "12345678" (hex), "0" (decimális), "4294967295" (decimális max)
+                </small>
+            </div>
+            <button id="set-password-btn" onclick="setPassword()" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                🔒 Password beállítása
+            </button>
+            <button id="clear-password-btn" onclick="clearPassword()" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); margin-top: 10px;">
+                🔓 Password törlése
+            </button>
+            <div id="password-status" class="status"></div>
         </div>
     </div>
 
@@ -417,12 +446,16 @@
             tagInfoEl.style.display = 'none';
 
             try {
+                // Password mező értéke (ha meg van adva)
+                const writePassword = document.getElementById('write-password-input').value.trim();
+                const password = writePassword ? writePassword : null;
+                
                 let result;
                 if (recordType === 'uri') {
                     const url = document.getElementById('url-input').value.trim();
                     if (!url) throw new Error('Kérlek adj meg egy URL-t!');
                     try { new URL(url); } catch { throw new Error('Érvénytelen URL formátum!'); }
-                    result = await invoke('write_url_to_ntag216', { url });
+                    result = await invoke('write_url_to_ntag216', { url, password });
                 } else if (recordType === 'text') {
                     const text = document.getElementById('text-input').value.trim();
                     const language = document.getElementById('language-input').value.trim() || 'hu';
@@ -633,6 +666,63 @@
         // URL olvasása (kompatibilitás)
         window.readUrl = async function() {
             await window.readNdef();
+        };
+
+        // Password beállítása
+        window.setPassword = async function() {
+            const passwordInput = document.getElementById('password-input');
+            const setPasswordBtn = document.getElementById('set-password-btn');
+            const statusEl = document.getElementById('password-status');
+            const password = passwordInput.value.trim();
+
+            if (!password) {
+                statusEl.className = 'status error';
+                statusEl.textContent = '❌ Kérlek adj meg egy jelszót!';
+                return;
+            }
+
+            setPasswordBtn.disabled = true;
+            setPasswordBtn.innerHTML = '<span class="loading"></span>Password beállítása... Olvass be egy NTAG216 címkét!';
+            statusEl.className = 'status info';
+            statusEl.textContent = '⏳ Várakozás címkére... Olvass be egy NTAG216 címkét az olvasóra!';
+
+            try {
+                const result = await invoke('set_ntag216_password', { password });
+                setPasswordBtn.disabled = false;
+                setPasswordBtn.textContent = '🔒 Password beállítása';
+                statusEl.className = 'status success';
+                statusEl.textContent = `✅ ${result}`;
+                passwordInput.value = '';
+            } catch (error) {
+                setPasswordBtn.disabled = false;
+                setPasswordBtn.textContent = '🔒 Password beállítása';
+                statusEl.className = 'status error';
+                statusEl.textContent = `❌ Hiba: ${error}`;
+            }
+        };
+
+        // Password törlése
+        window.clearPassword = async function() {
+            const clearPasswordBtn = document.getElementById('clear-password-btn');
+            const statusEl = document.getElementById('password-status');
+
+            clearPasswordBtn.disabled = true;
+            clearPasswordBtn.innerHTML = '<span class="loading"></span>Password törlése... Olvass be egy NTAG216 címkét!';
+            statusEl.className = 'status info';
+            statusEl.textContent = '⏳ Várakozás címkére... Olvass be egy NTAG216 címkét az olvasóra!';
+
+            try {
+                const result = await invoke('clear_ntag216_password');
+                clearPasswordBtn.disabled = false;
+                clearPasswordBtn.textContent = '🔓 Password törlése';
+                statusEl.className = 'status success';
+                statusEl.textContent = `✅ ${result}`;
+            } catch (error) {
+                clearPasswordBtn.disabled = false;
+                clearPasswordBtn.textContent = '🔓 Password törlése';
+                statusEl.className = 'status error';
+                statusEl.textContent = `❌ Hiba: ${error}`;
+            }
         };
 
         // Oldal betöltésekor NFC ellenőrzés

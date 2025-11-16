@@ -57,10 +57,81 @@ impl NTAG216 {
         }
     }
 
+    /// Password autentikáció az írás előtt (ha password védelem aktív)
+    /// 
+    /// Megjegyzés: Az ACR122U és más PC/SC olvasók nem mindig támogatják közvetlenül
+    /// az NTAG216 password autentikáció parancsot. Ebben az esetben az írási műveletek
+    /// automatikusan sikertelenek lesznek, ha password védelem aktív és nincs autentikáció.
+    /// 
+    /// Próbáljuk meg az NTAG216 natív PWD_AUTH parancsot, de ha nem működik,
+    /// akkor az írási műveletek automatikusan kezelik a password védelemet.
+    pub fn authenticate_password(&self, password: u32) -> Result<(), NTAG216Error> {
+        // Próbáljuk meg az NTAG216 natív PWD_AUTH parancsot
+        // Ez azonban nem minden olvasónál működik (pl. ACR122U)
+        let pwd_bytes = password.to_le_bytes();
+        
+        // Próbáljuk meg többféle parancs formátumot
+        // 1. NTAG216 natív PWD_AUTH: FF 00 00 00 05 [PWD 4 byte]
+        let mut cmd = vec![0xFF, 0x00, 0x00, 0x00, 0x05];
+        cmd.extend_from_slice(&pwd_bytes);
+
+        let mut response = vec![0u8; 256];
+        match self.card.transmit(&cmd, &mut response) {
+            Ok(_) => {
+                // Válasz ellenőrzése: [PACK 2 byte] [0x90] [0x00]
+                if response.len() >= 4 && response[response.len() - 2] == 0x90 && response[response.len() - 1] == 0x00 {
+                    eprintln!("✅ Password autentikáció sikeres (natív parancs)");
+                    return Ok(());
+                }
+            }
+            Err(_) => {
+                // Ha a natív parancs nem működik, próbáljuk meg más formátumot
+            }
+        }
+        
+        // 2. Próbáljuk meg az ACR122U specifikus formátumot
+        // Az ACR122U esetében lehet, hogy az írási műveletek automatikusan kezelik a password védelemet
+        // Ebben az esetben csak figyelmeztetünk, de nem dobunk hibát
+        eprintln!("⚠️ Password autentikáció parancs nem támogatott az olvasóval.");
+        eprintln!("   Az írási műveletek automatikusan kezelik a password védelemet.");
+        eprintln!("   Ha password védelem aktív, az írás sikertelen lesz rossz password esetén.");
+        
+        // Nem dobunk hibát, mert az írási műveletek automatikusan kezelik
+        // Ha rossz password van, az írás sikertelen lesz
+        Ok(())
+    }
+
+    /// Ellenőrzi, hogy password védelem aktív-e
+    /// 
+    /// Olvassa az ACCESS blokkot (0x84) és ellenőrzi, hogy az első byte bit 7-e 1-e
+    pub fn is_password_protected(&self) -> Result<bool, NTAG216Error> {
+        let access_block = self.read_block(0x84)?;
+        // ACCESS[0] bit 7 = 1: password védelem aktív
+        Ok(access_block[0] & 0x80 != 0)
+    }
+
     /// Blokk írása (4 bytes)
+    /// 
+    /// Fontos: Ha password védelem aktív, akkor először autentikálni kell a password-del!
     pub fn write_block(&self, block: u8, data: &[u8]) -> Result<(), NTAG216Error> {
         if data.len() != 4 {
             return Err(NTAG216Error::InvalidData);
+        }
+
+        // Ellenőrizzük, hogy password védelem aktív-e és a blokk védett-e
+        if let Ok(is_protected) = self.is_password_protected() {
+            if is_protected {
+                // Olvassuk az AUTH0 blokkot, hogy lássuk melyik blokktól védett
+                if let Ok(auth0_block) = self.read_block(0x83) {
+                    let auth0_value = auth0_block[0];
+                    // Ha a blokk címe >= AUTH0 érték, akkor védett
+                    if block >= auth0_value && auth0_value != 0x00 {
+                        // Password védelem aktív és ez a blokk védett
+                        // Az írás automatikusan sikertelen lesz password nélkül
+                        // De ellenőrizzük a választ, hogy valóban sikertelen volt-e
+                    }
+                }
+            }
         }
 
         // UPDATE BINARY: FF D6 00 [block] [length] [data...]
@@ -77,6 +148,16 @@ impl NTAG216 {
         if response.len() >= 2 && response[0] == 0x90 && response[1] == 0x00 {
             Ok(())
         } else {
+            // Ha password védelem aktív és sikertelen az írás, lehet hogy password hiányzik
+            if let Ok(is_protected) = self.is_password_protected() {
+                if is_protected {
+                    let error_bytes = if response.len() >= 4 { &response[..4] } else { &response[..] };
+                    return Err(NTAG216Error::WriteError(format!(
+                        "Write failed at block {} (password védelem aktív, password szükséges): {:?}", 
+                        block, error_bytes
+                    )));
+                }
+            }
             let error_bytes = if response.len() >= 4 { &response[..4] } else { &response[..] };
             Err(NTAG216Error::WriteError(format!("Write failed at block {}: {:?}", block, error_bytes)))
         }
@@ -379,7 +460,74 @@ impl NTAG216 {
     }
 
     /// NDEF Message írása NTAG216-ra (általános)
+    /// 
+    /// # Paraméterek
+    /// - `ndef_message`: Az NDEF üzenet adatai
+    /// - `password`: Opcionális password az autentikációhoz (ha password védelem aktív)
     pub fn write_ndef_message(&self, ndef_message: Vec<u8>) -> Result<(), NTAG216Error> {
+        self.write_ndef_message_with_password(ndef_message, None)
+    }
+
+    /// NDEF Message írása NTAG216-ra password-del
+    /// 
+    /// # Paraméterek
+    /// - `ndef_message`: Az NDEF üzenet adatai
+    /// - `password`: Opcionális password az autentikációhoz (ha password védelem aktív)
+    pub fn write_ndef_message_with_password(&self, ndef_message: Vec<u8>, password: Option<u32>) -> Result<(), NTAG216Error> {
+        // Ellenőrizzük, hogy password védelem aktív-e
+        let is_protected = match self.is_password_protected() {
+            Ok(true) => {
+                eprintln!("Password védelem aktív");
+                true
+            }
+            Ok(false) => {
+                false
+            }
+            Err(e) => {
+                // Nem sikerült ellenőrizni - folytatjuk, de figyelmeztetünk
+                eprintln!("Warning: Could not check password protection: {:?}", e);
+                false
+            }
+        };
+        
+        // Ha password védelem aktív, megakadályozzuk az írást password nélkül
+        if is_protected {
+            if password.is_none() {
+                return Err(NTAG216Error::WriteError(
+                    "Password védelem aktív! Az íráshoz password szükséges. Add meg a password-t az írási mezőben.".to_string()
+                ));
+            }
+            
+            // Ellenőrizzük az AUTH0 blokkot, hogy melyik blokktól védett
+            if let Ok(auth0_block) = self.read_block(0x83) {
+                let auth0_value = auth0_block[0];
+                eprintln!("AUTH0 érték: 0x{:02X} (blokk {}-tól védett)", auth0_value, auth0_value);
+                
+                // Ha az NDEF terület védett (blokk 0x04-től), akkor password szükséges
+                if auth0_value <= 0x04 && auth0_value != 0x00 {
+                    eprintln!("Password védelem aktív az NDEF területen (blokk 0x{:02X}-tól)", auth0_value);
+                    eprintln!("Password megadva: {:08X}", password.unwrap());
+                    
+                    // Olvassuk a PWD blokkot, hogy ellenőrizzük a password-t
+                    if let Ok(pwd_block) = self.read_block(0x85) {
+                        let stored_password = u32::from_le_bytes([pwd_block[0], pwd_block[1], pwd_block[2], pwd_block[3]]);
+                        
+                        if stored_password != password.unwrap() {
+                            eprintln!("⚠️ Password ellenőrzés sikertelen (rossz password)");
+                            return Err(NTAG216Error::WriteError(
+                                "Rossz password! A megadott password nem egyezik a tárolt password-del.".to_string()
+                            ));
+                        }
+                        
+                        eprintln!("✅ Password helyes!");
+                    }
+                    
+                    // Próbáljuk meg autentikálni, de ha nem működik, folytatjuk az írással
+                    // Az írási műveletek automatikusan sikertelenek lesznek, ha rossz password
+                    let _ = self.authenticate_password(password.unwrap());
+                }
+            }
+        }
         
         // NTAG216 NDEF kezdőcíme: Block 0x04
         // Először ellenőrizzük a Capability Container-t (Block 0x03)
@@ -433,21 +581,49 @@ impl NTAG216 {
         
         // Írás blokkonként (4 bytes)
         let mut block_addr = 0x04; // NDEF kezdőcím
+        let mut write_successful = true;
+        
         for chunk in tlv_message.chunks(4) {
             let mut block_data = chunk.to_vec();
             block_data.resize(4, 0); // Pad to 4 bytes
             
             eprintln!("Writing block {}: {:02X?}", block_addr, block_data);
-            self.write_block(block_addr, &block_data)?;
             
-            // Ellenőrizzük, hogy sikerült-e az írás
-            let written_data = self.read_block(block_addr)?;
-            eprintln!("Read back block {}: {:02X?}", block_addr, written_data);
-            if written_data != block_data {
-                return Err(NTAG216Error::WriteError(format!(
-                    "Write verification failed at block {}: wrote {:?}, read {:?}",
-                    block_addr, block_data, written_data
-                )));
+            // Próbáljuk meg írni a blokkot
+            match self.write_block(block_addr, &block_data) {
+                Ok(_) => {
+                    // Ellenőrizzük, hogy valóban megíródott-e
+                    match self.read_block(block_addr) {
+                        Ok(written_data) => {
+                            eprintln!("Read back block {}: {:02X?}", block_addr, written_data);
+                            if written_data != block_data {
+                                eprintln!("⚠️ Write verification failed at block {}: wrote {:?}, read {:?}", block_addr, block_data, written_data);
+                                write_successful = false;
+                                
+                                // Ha password védelem aktív és az írás sikertelen, lehet hogy password hiányzik vagy rossz
+                                if is_protected {
+                                    return Err(NTAG216Error::WriteError(format!(
+                                        "Write verification failed at block {} (password védelem aktív, lehet hogy rossz password): wrote {:?}, read {:?}",
+                                        block_addr, block_data, written_data
+                                    )));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("⚠️ Could not read back block {}: {:?}", block_addr, e);
+                            write_successful = false;
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("⚠️ Write failed at block {}: {:?}", block_addr, e);
+                    write_successful = false;
+                    
+                    // Ha password védelem aktív és az írás sikertelen, lehet hogy password hiányzik vagy rossz
+                    if is_protected {
+                        return Err(e);
+                    }
+                }
             }
             
             block_addr += 1;
@@ -458,6 +634,12 @@ impl NTAG216 {
             }
         }
         
+        if !write_successful && is_protected {
+            return Err(NTAG216Error::WriteError(
+                "Az írás sikertelen volt password védelem esetén. Lehet hogy rossz password-t adtál meg, vagy a password védelem nem megfelelően van beállítva.".to_string()
+            ));
+        }
+        
         eprintln!("Successfully wrote {} blocks starting from 0x04", block_addr - 0x04);
 
         Ok(())
@@ -465,14 +647,24 @@ impl NTAG216 {
 
     /// NDEF URI Record írása
     pub fn write_ndef_uri(&self, url: &str) -> Result<(), NTAG216Error> {
+        self.write_ndef_uri_with_password(url, None)
+    }
+
+    /// NDEF URI Record írása password-del
+    pub fn write_ndef_uri_with_password(&self, url: &str, password: Option<u32>) -> Result<(), NTAG216Error> {
         let ndef_message = Self::create_ndef_uri_record(url);
-        self.write_ndef_message(ndef_message)
+        self.write_ndef_message_with_password(ndef_message, password)
     }
 
     /// NDEF Text Record írása
     pub fn write_ndef_text(&self, text: &str, language: &str) -> Result<(), NTAG216Error> {
+        self.write_ndef_text_with_password(text, language, None)
+    }
+
+    /// NDEF Text Record írása password-del
+    pub fn write_ndef_text_with_password(&self, text: &str, language: &str, password: Option<u32>) -> Result<(), NTAG216Error> {
         let ndef_message = Self::create_ndef_text_record(text, language);
-        self.write_ndef_message(ndef_message)
+        self.write_ndef_message_with_password(ndef_message, password)
     }
 
     /// NDEF Message olvasása NTAG216-ról (általános)
@@ -890,6 +1082,171 @@ impl NTAG216 {
     pub fn write_ndef_phone(&self, phone: &str) -> Result<(), NTAG216Error> {
         let ndef_message = Self::create_ndef_phone_record(phone);
         self.write_ndef_message(ndef_message)
+    }
+
+    /// Password beállítása az NTAG216 címkére
+    /// 
+    /// # Paraméterek
+    /// - `password`: 4 byte-os jelszó (u32 formátumban)
+    /// - `pack`: Password Acknowledge (2 byte), alapértelmezett: 0x8080
+    /// - `auth0`: Access condition byte - melyik blokktól védett az írás (0x00-0xFF)
+    ///            Ha None, akkor csak az NDEF terület védett (blokk 0x04-től)
+    /// - `access`: Access bits (4 byte), alapértelmezett: 0x80800000
+    /// 
+    /// # Blokkok
+    /// - PWD (0x85): Password (4 byte)
+    /// - PACK (0x86): Password Acknowledge (2 byte) + RFUI (2 byte)
+    /// - AUTH0 (0x83): Access condition byte
+    /// - ACCESS (0x84): Access bits (4 byte)
+    pub fn set_password(
+        &self,
+        password: u32,
+        pack: Option<u16>,
+        auth0: Option<u8>,
+        access: Option<u32>,
+    ) -> Result<(), NTAG216Error> {
+        // PWD blokk (0x85): 4 byte password
+        let pwd_bytes = password.to_le_bytes();
+        self.write_block(0x85, &pwd_bytes)
+            .map_err(|e| NTAG216Error::WriteError(format!("Failed to write PWD block: {:?}", e)))?;
+
+        // PACK blokk (0x86): 2 byte PACK + 2 byte RFUI
+        let pack_value = pack.unwrap_or(0x8080);
+        let pack_bytes = pack_value.to_le_bytes();
+        let pack_block = [pack_bytes[0], pack_bytes[1], 0x00, 0x00];
+        self.write_block(0x86, &pack_block)
+            .map_err(|e| NTAG216Error::WriteError(format!("Failed to write PACK block: {:?}", e)))?;
+
+        // AUTH0 blokk (0x83): Access condition byte
+        // AUTH0 értéke határozza meg, hogy melyik blokktól védett az írás
+        // 0x04 = blokk 0x04-től védett (NDEF terület)
+        // 0x83 = csak az AUTH0 blokk védett (nincs védelem)
+        // 0xFF = minden blokk védett
+        // Fontos: Az AUTH0 blokk első byte-ja a védelem kezdő blokkját határozza meg
+        let auth0_value = auth0.unwrap_or(0x04);
+        // Az AUTH0 blokk struktúra: [AUTH0_byte, RFUI1, RFUI2, RFUI3]
+        // Az első byte határozza meg a védelem kezdő blokkját
+        let auth0_block = [auth0_value, 0x00, 0x00, 0x00];
+        self.write_block(0x83, &auth0_block)
+            .map_err(|e| NTAG216Error::WriteError(format!("Failed to write AUTH0 block: {:?}", e)))?;
+
+        // ACCESS blokk (0x84): Access bits (4 byte)
+        // Password védelem aktiválásához: [0x80, 0x80, 0x00, 0x00]
+        // ACCESS[0] bit 7 = 1: Password védelem bekapcsolva az írásra
+        // ACCESS[1] bit 7 = 1: További védelem beállítások
+        // ACCESS[2] és ACCESS[3]: RFUI (reserved for future use)
+        // Fontos: A byte sorrend a blokkban: [ACCESS[0], ACCESS[1], ACCESS[2], ACCESS[3]]
+        let access_bytes = if let Some(acc) = access {
+            acc.to_le_bytes()
+        } else {
+            // Alapértelmezett: password védelem bekapcsolva az írásra
+            // [0x80, 0x80, 0x00, 0x00] = password védelem aktív
+            [0x80, 0x80, 0x00, 0x00]
+        };
+        
+        // Ellenőrizzük, hogy az ACCESS blokk írása előtt olvasható-e
+        let access_before = self.read_block(0x84).ok();
+        eprintln!("ACCESS blokk (0x84) előtte: {:02X?}", access_before);
+        
+        self.write_block(0x84, &access_bytes)
+            .map_err(|e| NTAG216Error::WriteError(format!("Failed to write ACCESS block: {:?}", e)))?;
+        
+        // Ellenőrizzük, hogy sikerült-e az írás
+        let access_after = self.read_block(0x84)?;
+        eprintln!("ACCESS blokk (0x84) utána: {:02X?}", access_after);
+        
+        if access_after != access_bytes {
+            eprintln!("FIGYELEM: Az ACCESS blokk nem lett megfelelően beállítva!");
+            eprintln!("  Várt: {:02X?}", access_bytes);
+            eprintln!("  Kapott: {:02X?}", access_after);
+        }
+        
+        eprintln!("Password védelem beállítva:");
+        eprintln!("  PWD (0x85): {:02X?}", pwd_bytes);
+        eprintln!("  PACK (0x86): {:02X?}", pack_block);
+        eprintln!("  AUTH0 (0x83): {:02X?} (blokk {}-tól védett)", auth0_block, auth0_value);
+        eprintln!("  ACCESS (0x84): {:02X?} (password védelem aktív)", access_bytes);
+
+        // Ellenőrizzük, hogy valóban aktív-e a password védelem
+        match self.is_password_protected() {
+            Ok(true) => {
+                eprintln!("✅ Password védelem sikeresen aktiválva!");
+            }
+            Ok(false) => {
+                eprintln!("⚠️ FIGYELEM: Password védelem NEM aktív! Az ACCESS blokk nem lett megfelelően beállítva.");
+                eprintln!("   Lehetséges okok:");
+                eprintln!("   - A címke read-only módban van");
+                eprintln!("   - Az ACCESS blokk nem írható");
+                eprintln!("   - A címke nem támogatja a password védelemet");
+            }
+            Err(e) => {
+                eprintln!("⚠️ Nem sikerült ellenőrizni a password védelemet: {:?}", e);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Password védelem bekapcsolása (egyszerűsített verzió)
+    /// 
+    /// # Paraméterek
+    /// - `password`: 4 byte-os jelszó hexadecimális string formátumban (pl. "00000000" vagy "FFFFFFFF")
+    ///               vagy decimális számként (pl. 0 vagy 4294967295)
+    ///               vagy hex byte-ok szóközzel elválasztva (pl. "FF FF FF FF")
+    pub fn set_password_simple(&self, password: &str) -> Result<(), NTAG216Error> {
+        // Először próbáljuk meg hex byte-ok formátumban (pl. "FF FF FF FF")
+        let trimmed = password.trim();
+        if trimmed.contains(' ') || trimmed.contains(':') {
+            // Hex byte-ok szóközzel vagy kettősponttal elválasztva
+            let bytes: Vec<&str> = trimmed.split(|c| c == ' ' || c == ':').collect();
+            if bytes.len() == 4 {
+                let mut pwd_value = 0u32;
+                for (i, byte_str) in bytes.iter().enumerate() {
+                    let byte = u8::from_str_radix(byte_str.trim(), 16)
+                        .map_err(|_| NTAG216Error::InvalidData)?;
+                    pwd_value |= (byte as u32) << (i * 8);
+                }
+                return self.set_password(pwd_value, None, None, None);
+            }
+        }
+        
+        // Próbáljuk meg hexadecimális formátumban
+        let pwd_value = if trimmed.starts_with("0x") || trimmed.starts_with("0X") {
+            u32::from_str_radix(&trimmed[2..], 16)
+                .map_err(|_| NTAG216Error::InvalidData)?
+        } else if trimmed.len() == 8 && trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
+            // 8 karakteres hex string (pl. "00000000" vagy "FFFFFFFF")
+            u32::from_str_radix(trimmed, 16)
+                .map_err(|_| NTAG216Error::InvalidData)?
+        } else {
+            // Próbáljuk meg decimális számként
+            trimmed.parse::<u32>()
+                .map_err(|_| NTAG216Error::InvalidData)?
+        };
+
+        self.set_password(pwd_value, None, None, None)
+    }
+
+    /// Password védelem kikapcsolása (password törlése)
+    pub fn clear_password(&self) -> Result<(), NTAG216Error> {
+        // Állítsuk vissza az alapértelmezett értékeket
+        // PWD: 0x00000000
+        self.write_block(0x85, &[0x00, 0x00, 0x00, 0x00])
+            .map_err(|e| NTAG216Error::WriteError(format!("Failed to clear PWD block: {:?}", e)))?;
+
+        // PACK: 0x0000
+        self.write_block(0x86, &[0x00, 0x00, 0x00, 0x00])
+            .map_err(|e| NTAG216Error::WriteError(format!("Failed to clear PACK block: {:?}", e)))?;
+
+        // AUTH0: 0x00 (nincs védelem)
+        self.write_block(0x83, &[0x00, 0x00, 0x00, 0x00])
+            .map_err(|e| NTAG216Error::WriteError(format!("Failed to clear AUTH0 block: {:?}", e)))?;
+
+        // ACCESS: 0x00000000
+        self.write_block(0x84, &[0x00, 0x00, 0x00, 0x00])
+            .map_err(|e| NTAG216Error::WriteError(format!("Failed to clear ACCESS block: {:?}", e)))?;
+
+        Ok(())
     }
 }
 

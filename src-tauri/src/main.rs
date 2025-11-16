@@ -20,7 +20,9 @@ fn main() {
             read_ntag216,
             read_ntag216_url,
             list_nfc_readers,
-            check_nfc_available
+            check_nfc_available,
+            set_ntag216_password,
+            clear_ntag216_password
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

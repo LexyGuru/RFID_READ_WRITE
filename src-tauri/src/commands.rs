@@ -2,6 +2,39 @@ use crate::nfc::{NFCReader, NTAG216};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
+/// Password parsing helper függvény
+fn parse_password(password: &str) -> Result<u32, String> {
+    let trimmed = password.trim();
+    
+    // Először próbáljuk meg hex byte-ok formátumban (pl. "FF FF FF FF")
+    if trimmed.contains(' ') || trimmed.contains(':') {
+        let bytes: Vec<&str> = trimmed.split(|c| c == ' ' || c == ':').collect();
+        if bytes.len() == 4 {
+            let mut pwd_value = 0u32;
+            for (i, byte_str) in bytes.iter().enumerate() {
+                let byte = u8::from_str_radix(byte_str.trim(), 16)
+                    .map_err(|_| format!("Érvénytelen hex byte: {}", byte_str))?;
+                pwd_value |= (byte as u32) << (i * 8);
+            }
+            return Ok(pwd_value);
+        }
+    }
+    
+    // Próbáljuk meg hexadecimális formátumban
+    if trimmed.starts_with("0x") || trimmed.starts_with("0X") {
+        u32::from_str_radix(&trimmed[2..], 16)
+            .map_err(|_| format!("Érvénytelen hex szám: {}", trimmed))
+    } else if trimmed.len() == 8 && trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
+        // 8 karakteres hex string (pl. "00000000" vagy "FFFFFFFF")
+        u32::from_str_radix(trimmed, 16)
+            .map_err(|_| format!("Érvénytelen hex string: {}", trimmed))
+    } else {
+        // Próbáljuk meg decimális számként
+        trimmed.parse::<u32>()
+            .map_err(|_| format!("Érvénytelen password formátum: {}. Használd: hex (FFFFFFFF), decimális (4294967295), vagy byte-ok (FF FF FF FF)", trimmed))
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NFCReaderInfo {
     name: String,
@@ -49,7 +82,7 @@ pub async fn check_nfc_available() -> Result<bool, String> {
 }
 
 #[tauri::command]
-pub async fn write_url_to_ntag216(url: String) -> Result<TagInfo, String> {
+pub async fn write_url_to_ntag216(url: String, password: Option<String>) -> Result<TagInfo, String> {
     let reader = NFCReader::new().map_err(|e| format!("NFC Reader error: {:?}", e))?;
     
     // Várunk egy címkére (5 másodperc timeout)
@@ -72,9 +105,16 @@ pub async fn write_url_to_ntag216(url: String) -> Result<TagInfo, String> {
         }
     }
     
+    // Password parsing (ha meg van adva)
+    let pwd_value = if let Some(pwd_str) = password {
+        Some(parse_password(&pwd_str)?)
+    } else {
+        None
+    };
+    
     // URL írása
-    ntag.write_ndef_uri(&url).map_err(|e| {
-        format!("Write error: {:?}\n\nLehetséges okok:\n- A címke read-only módban van\n- A címke nem NTAG216 típusú\n- Az olvasó nem támogatja az írást\n- A címke eltávolodott az olvasóról\n\nTipp: Próbáld meg először olvasni a címkét, hogy lássuk mi van rajta!", e)
+    ntag.write_ndef_uri_with_password(&url, pwd_value).map_err(|e| {
+        format!("Write error: {:?}\n\nLehetséges okok:\n- A címke read-only módban van\n- A címke nem NTAG216 típusú\n- Az olvasó nem támogatja az írást\n- A címke eltávolodott az olvasóról\n- Password védelem aktív és rossz password\n\nTipp: Próbáld meg először olvasni a címkét, hogy lássuk mi van rajta!", e)
     })?;
     
     // Ellenőrizzük, hogy tényleg megíródott-e
@@ -518,5 +558,33 @@ pub async fn write_phone_to_ntag216(phone: String) -> Result<TagInfo, String> {
         sms_message: None,
         phone_number: Some(phone),
     })
+}
+
+#[tauri::command]
+pub async fn set_ntag216_password(password: String) -> Result<String, String> {
+    let reader = NFCReader::new().map_err(|e| format!("{:?}", e))?;
+    let card = reader.wait_for_card(Duration::from_secs(10))
+        .map_err(|e| format!("Card connection error: {:?}", e))?;
+    
+    let ntag = NTAG216::new(card);
+    
+    ntag.set_password_simple(&password)
+        .map_err(|e| format!("Password set error: {:?}", e))?;
+    
+    Ok(format!("Password sikeresen beállítva: {}", password))
+}
+
+#[tauri::command]
+pub async fn clear_ntag216_password() -> Result<String, String> {
+    let reader = NFCReader::new().map_err(|e| format!("{:?}", e))?;
+    let card = reader.wait_for_card(Duration::from_secs(10))
+        .map_err(|e| format!("Card connection error: {:?}", e))?;
+    
+    let ntag = NTAG216::new(card);
+    
+    ntag.clear_password()
+        .map_err(|e| format!("Password clear error: {:?}", e))?;
+    
+    Ok("Password sikeresen törölve".to_string())
 }
 
