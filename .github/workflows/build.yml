@@ -78,18 +78,28 @@ jobs:
           echo "=== pkg-config check ==="
           pkg-config --modversion webkit2gtk-4.0 2>/dev/null || pkg-config --modversion webkit2gtk-4.1 2>/dev/null || echo "WebKit2GTK not found via pkg-config"
 
-      - name: Generate icon if missing (Windows only)
+      - name: Verify icons exist (Windows only)
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
-          if (-not (Test-Path "src-tauri/icons/icon.png") -or (Get-Item "src-tauri/icons/icon.png").Length -eq 0) {
-            Write-Host "Generating placeholder icon..."
-            $bmp = New-Object System.Drawing.Bitmap(512, 512)
-            $graphics = [System.Drawing.Graphics]::FromImage($bmp)
-            $graphics.Clear([System.Drawing.Color]::FromArgb(74, 144, 226))
-            $graphics.Dispose()
-            $bmp.Save("src-tauri/icons/icon.png", [System.Drawing.Imaging.ImageFormat]::Png)
-            $bmp.Dispose()
+          $iconsDir = "src-tauri/icons"
+          Write-Host "Checking icon files..."
+          Get-ChildItem "$iconsDir/icon.*" | Format-Table Name, Length
+          
+          # Verify icon.ico exists
+          if (-not (Test-Path "$iconsDir/icon.ico")) {
+            Write-Host "WARNING: icon.ico not found! Generating fallback..."
+            # Generate icon.png if missing
+            if (-not (Test-Path "$iconsDir/icon.png") -or (Get-Item "$iconsDir/icon.png").Length -eq 0) {
+              $bmp = New-Object System.Drawing.Bitmap(512, 512)
+              $graphics = [System.Drawing.Graphics]::FromImage($bmp)
+              $graphics.Clear([System.Drawing.Color]::FromArgb(74, 144, 226))
+              $graphics.Dispose()
+              $bmp.Save("$iconsDir/icon.png", [System.Drawing.Imaging.ImageFormat]::Png)
+              $bmp.Dispose()
+            }
+            # Copy PNG as ICO (fallback)
+            Copy-Item "$iconsDir/icon.png" "$iconsDir/icon.ico"
           }
 
       - name: Build Tauri app
