@@ -29,7 +29,8 @@ jobs:
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.0-dev \
+          sudo apt-get install -y \
+            libwebkit2gtk-4.0-dev \
             build-essential \
             curl \
             wget \
@@ -40,13 +41,8 @@ jobs:
             librsvg2-dev \
             pcscd \
             libpcsclite1 \
-            libpcsclite-dev
-          sudo systemctl start pcscd
-
-      - name: Install dependencies (macos only)
-        if: matrix.platform == 'macos-latest'
-        run: |
-          brew install pkg-config
+            libpcsclite-dev \
+            pkg-config
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -54,16 +50,13 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install Rust
+      - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
 
       - name: Install frontend dependencies
         run: npm ci
-
-      - name: Build frontend
-        run: npm run build
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
