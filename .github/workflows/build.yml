@@ -53,6 +53,15 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.0-dev libjavascriptcoregtk-4.0-dev || \
           (echo "WebKit2GTK telepítési hiba, próbáljuk meg a 4.0 verziót..." && \
            sudo apt-get install -y libwebkit2gtk-4.0-dev)
+          
+          # Set PKG_CONFIG_PATH to help find javascriptcoregtk
+          export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig:$PKG_CONFIG_PATH"
+          echo "PKG_CONFIG_PATH set to: $PKG_CONFIG_PATH"
+          
+          # Verify javascriptcoregtk is found
+          pkg-config --exists javascriptcoregtk-4.0 && echo "javascriptcoregtk-4.0 found" || \
+          pkg-config --exists javascriptcoregtk-4.1 && echo "javascriptcoregtk-4.1 found" || \
+          echo "WARNING: javascriptcoregtk not found via pkg-config"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -106,6 +115,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PKG_CONFIG_PATH: ${{ matrix.platform == 'ubuntu-latest' && '/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig' || '' }}
         with:
           projectPath: ./src-tauri
           args: ${{ matrix.args }}
@@ -116,7 +126,12 @@ jobs:
 
       - name: Create ZIP archives (Linux/macOS)
         if: github.event_name != 'pull_request' && (matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest')
+        continue-on-error: true
         run: |
+          if [ ! -d "src-tauri/target/release/bundle" ]; then
+            echo "Bundle directory does not exist, skipping ZIP creation"
+            exit 0
+          fi
           cd src-tauri/target/release/bundle
           
           if [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
@@ -153,8 +168,13 @@ jobs:
 
       - name: Create ZIP archives (Windows)
         if: github.event_name != 'pull_request' && matrix.platform == 'windows-latest'
+        continue-on-error: true
         shell: pwsh
         run: |
+          if (-not (Test-Path "src-tauri/target/release/bundle")) {
+            Write-Host "Bundle directory does not exist, skipping ZIP creation"
+            exit 0
+          }
           cd src-tauri/target/release/bundle
           Get-ChildItem -Recurse -Include *.msi,*.exe | ForEach-Object {
             $zipName = $_.BaseName + ".zip"
