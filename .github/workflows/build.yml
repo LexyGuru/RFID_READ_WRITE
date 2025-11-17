@@ -129,7 +129,8 @@ jobs:
             Copy-Item "$iconsDir/icon.png" "$iconsDir/icon.ico"
           }
 
-      - name: Build Tauri app
+      - name: Build Tauri app (with release)
+        if: github.ref_type == 'tag'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -141,6 +142,16 @@ jobs:
           releaseBody: 'See the assets to download and install this version.'
           releaseDraft: true
           prerelease: false
+
+      - name: Build Tauri app (without release)
+        if: github.ref_type != 'tag'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PKG_CONFIG_PATH: ${{ matrix.platform == 'ubuntu-latest' && '/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig' || '' }}
+        with:
+          projectPath: ./src-tauri
+          args: ${{ matrix.args }}
 
       - name: Create ZIP archives (Linux/macOS)
         if: github.event_name != 'pull_request' && (matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest')
@@ -219,9 +230,10 @@ jobs:
           retention-days: 30
 
       - name: Upload ZIP files to release
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.ref_type == 'tag'
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ github.ref_name }}
           files: artifacts/*.zip
           fail_on_unmatched_files: false
         env:
