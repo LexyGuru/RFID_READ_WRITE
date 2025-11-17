@@ -1,0 +1,127 @@
+name: Build Windows Only
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify icons exist (Windows only)
+        shell: pwsh
+        run: |
+          $iconsDir = "src-tauri/icons"
+          Write-Host "Checking icon files..."
+          Get-ChildItem "$iconsDir/icon.*" | Format-Table Name, Length
+          
+          # Verify icon.ico exists
+          if (-not (Test-Path "$iconsDir/icon.ico")) {
+            Write-Host "WARNING: icon.ico not found! Generating fallback..."
+            # Generate icon.png if missing
+            if (-not (Test-Path "$iconsDir/icon.png") -or (Get-Item "$iconsDir/icon.png").Length -eq 0) {
+              $bmp = New-Object System.Drawing.Bitmap(512, 512)
+              $graphics = [System.Drawing.Graphics]::FromImage($bmp)
+              $graphics.Clear([System.Drawing.Color]::FromArgb(74, 144, 226))
+              $graphics.Dispose()
+              $bmp.Save("$iconsDir/icon.png", [System.Drawing.Imaging.ImageFormat]::Png)
+              $bmp.Dispose()
+            }
+            # Copy PNG as ICO (fallback)
+            Copy-Item "$iconsDir/icon.png" "$iconsDir/icon.ico"
+          }
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: ./src-tauri
+          args: ''
+
+      - name: Debug Windows build output
+        shell: pwsh
+        run: |
+          Write-Host "=== Checking build output ==="
+          Write-Host "Release directory exists: $((Test-Path 'src-tauri/target/release'))"
+          if (Test-Path 'src-tauri/target/release') {
+            Write-Host "Release directory contents:"
+            Get-ChildItem 'src-tauri/target/release' -Recurse -Include *.exe,*.msi | Select-Object FullName, Length | Format-Table
+          }
+          Write-Host "Bundle directory exists: $((Test-Path 'src-tauri/target/release/bundle'))"
+          if (Test-Path 'src-tauri/target/release/bundle') {
+            Write-Host "Bundle directory structure:"
+            Get-ChildItem 'src-tauri/target/release/bundle' -Recurse | Select-Object FullName | Format-Table
+          }
+
+      - name: Create ZIP archives (Windows)
+        shell: pwsh
+        run: |
+          $bundlePath = "src-tauri/target/release/bundle"
+          $artifactsPath = "artifacts"
+          
+          # Check for bundle directory
+          if (-not (Test-Path $bundlePath)) {
+            Write-Host "Bundle directory does not exist, checking for direct build outputs..."
+            # Try to find MSI/EXE files directly in release directory
+            $buildFiles = Get-ChildItem -Path "src-tauri/target/release" -Recurse -Include *.msi,*.exe -ErrorAction SilentlyContinue
+            if ($buildFiles) {
+              Write-Host "Found build files in release directory:"
+              $buildFiles | Format-Table FullName, Length
+              New-Item -ItemType Directory -Force -Path $artifactsPath | Out-Null
+              $buildFiles | ForEach-Object {
+                $zipName = Join-Path $artifactsPath ($_.BaseName + ".zip")
+                Compress-Archive -Path $_.FullName -DestinationPath $zipName -Force
+                Write-Host "Created: $zipName"
+              }
+              exit 0
+            } else {
+              Write-Host "No bundle directory and no build files found, skipping ZIP creation"
+              exit 0
+            }
+          }
+          
+          # Bundle directory exists, proceed with normal ZIP creation
+          cd $bundlePath
+          $zipFiles = Get-ChildItem -Recurse -Include *.msi,*.exe
+          if ($zipFiles) {
+            $zipFiles | ForEach-Object {
+              $zipName = $_.BaseName + ".zip"
+              Compress-Archive -Path $_.FullName -DestinationPath $zipName -Force
+              Write-Host "Created: $zipName"
+            }
+            
+            # List all created ZIP files
+            Get-ChildItem *.zip | Format-Table Name, Length
+            
+            # Copy to artifacts folder
+            New-Item -ItemType Directory -Force -Path ../../../$artifactsPath | Out-Null
+            Copy-Item *.zip ../../../$artifactsPath/
+          } else {
+            Write-Host "No MSI or EXE files found in bundle directory"
+          }
+
+      - name: Upload ZIP artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-artifacts
+          path: artifacts/*.zip
+          if-no-files-found: ignore
+          retention-days: 30
+
