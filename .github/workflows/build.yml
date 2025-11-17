@@ -63,6 +63,20 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Generate icon if missing (Windows only)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "src-tauri/icons/icon.png") -or (Get-Item "src-tauri/icons/icon.png").Length -eq 0) {
+            Write-Host "Generating placeholder icon..."
+            $bmp = New-Object System.Drawing.Bitmap(512, 512)
+            $graphics = [System.Drawing.Graphics]::FromImage($bmp)
+            $graphics.Clear([System.Drawing.Color]::FromArgb(74, 144, 226))
+            $graphics.Dispose()
+            $bmp.Save("src-tauri/icons/icon.png", [System.Drawing.Imaging.ImageFormat]::Png)
+            $bmp.Dispose()
+          }
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
