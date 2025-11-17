@@ -7,6 +7,7 @@ pub mod reader_libnfc;
 
 pub use ntag216::Ntag216;
 pub use reader::NfcReader;
+#[cfg(feature = "libnfc")]
 pub use card_trait::NfcCard;
 
 #[cfg(feature = "libnfc")]

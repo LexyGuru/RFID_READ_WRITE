@@ -430,7 +430,7 @@ impl Ntag216 {
 
     pub fn write_ndef_url_with_password(&self, card: &Card, url: &str, password: Option<&[u8; 4]>) -> Result<()> {
         println!("    📝 Ntag216::write_ndef_url() CALLED");
-        if let Some(pwd) = password {
+        if let Some(_pwd) = password {
             println!("      🔐 Password védett írás");
         }
         

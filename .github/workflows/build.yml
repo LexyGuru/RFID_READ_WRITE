@@ -29,8 +29,8 @@ jobs:
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
+          # Közös függőségek
           sudo apt-get install -y \
-            libwebkit2gtk-4.0-dev \
             build-essential \
             curl \
             wget \
@@ -46,6 +46,8 @@ jobs:
             libgtk-3-dev \
             libappindicator3-dev \
             patchelf
+          # WebKit2GTK - próbáljuk meg először a 4.1-et (Ubuntu 24.04+), majd a 4.0-t
+          sudo apt-get install -y libwebkit2gtk-4.1-dev || sudo apt-get install -y libwebkit2gtk-4.0-dev
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

@@ -40,7 +40,7 @@ impl NfcReader {
 
     pub fn list_readers(&self) -> Result<Vec<String>> {
         let mut buffer = [0u8; 2048];
-        let mut readers = self.ctx.list_readers(&mut buffer)
+        let readers = self.ctx.list_readers(&mut buffer)
             .context("Nem sikerült listázni az olvasókat")?;
         
         // ReaderNames már egy iterator-like struktúra, CStr-t String-gé konvertáljuk

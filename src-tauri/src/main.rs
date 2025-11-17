@@ -198,13 +198,11 @@ fn read_vcard() -> Result<String, String> {
 
 /// Password beállítása
 #[tauri::command]
-fn set_password(password: Vec<u8>, pack: Vec<u8>, authLimit: u8) -> Result<String, String> {
+fn set_password(password: Vec<u8>, pack: Vec<u8>, auth_limit: u8) -> Result<String, String> {
   println!("🔐 set_password CALLED");
   println!("  📥 password: {:?} (len: {})", password, password.len());
   println!("  📥 pack: {:?} (len: {})", pack, pack.len());
-  println!("  📥 authLimit: {}", authLimit);
-  
-  let auth_limit = authLimit; // Lokális változó
+  println!("  📥 auth_limit: {}", auth_limit);
   
   if password.len() != 4 {
     println!("  ❌ Password hossz hiba: {} != 4", password.len());
