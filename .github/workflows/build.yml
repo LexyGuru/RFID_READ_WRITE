@@ -44,7 +44,6 @@ jobs:
             libpcsclite-dev \
             pkg-config \
             libgtk-3-dev \
-            libappindicator3-dev \
             patchelf \
             libpango1.0-dev \
             libgdk-pixbuf2.0-dev \
@@ -100,4 +99,74 @@ jobs:
         with:
           projectPath: ./src-tauri
           args: ${{ matrix.args }}
+          releaseName: 'NTAG216 NFC v__VERSION__'
+          releaseBody: 'See the assets to download and install this version.'
+          releaseDraft: true
+          prerelease: false
+
+      - name: Create ZIP archives (Linux/macOS)
+        if: github.event_name != 'pull_request' && (matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-latest')
+        run: |
+          cd src-tauri/target/release/bundle
+          
+          if [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
+            find . -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.tar.gz" \) | while read file; do
+              name=$(basename "$file")
+              zip_name="${name%.*}.zip"
+              zip -j "$zip_name" "$file"
+              echo "Created: $zip_name"
+            done
+          elif [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            find . -type f -name "*.dmg" | while read file; do
+              name=$(basename "$file")
+              zip_name="${name%.*}.zip"
+              zip -j "$zip_name" "$file"
+              echo "Created: $zip_name"
+            done
+            # Also zip .app bundles
+            find . -type d -name "*.app" | while read appdir; do
+              name=$(basename "$appdir")
+              zip_name="${name%.*}.zip"
+              zip -r "$zip_name" "$appdir"
+              echo "Created: $zip_name"
+            done
+          fi
+          
+          # List all created ZIP files
+          ls -lh *.zip 2>/dev/null || echo "No ZIP files created"
+          
+          # Upload ZIP files as artifacts
+          if [ -n "$(ls -A *.zip 2>/dev/null)" ]; then
+            mkdir -p ../../../artifacts
+            cp *.zip ../../../artifacts/ || true
+          fi
+
+      - name: Create ZIP archives (Windows)
+        if: github.event_name != 'pull_request' && matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          cd src-tauri/target/release/bundle
+          Get-ChildItem -Recurse -Include *.msi,*.exe | ForEach-Object {
+            $zipName = $_.BaseName + ".zip"
+            Compress-Archive -Path $_.FullName -DestinationPath $zipName -Force
+            Write-Host "Created: $zipName"
+          }
+          
+          # List all created ZIP files
+          Get-ChildItem *.zip | Format-Table Name, Length
+          
+          # Copy to artifacts folder
+          if (Test-Path *.zip) {
+            New-Item -ItemType Directory -Force -Path ../../../artifacts | Out-Null
+            Copy-Item *.zip ../../../artifacts/
+          }
+
+      - name: Upload ZIP artifacts
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ matrix.platform }}
+          path: artifacts/*.zip
+          if-no-files-found: ignore
+          retention-days: 30
 
