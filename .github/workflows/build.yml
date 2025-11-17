@@ -195,29 +195,69 @@ jobs:
             cp *.zip ../../../artifacts/ || true
           fi
 
+      - name: Debug Windows build output
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          Write-Host "=== Checking build output ==="
+          Write-Host "Release directory exists: $((Test-Path 'src-tauri/target/release'))"
+          if (Test-Path 'src-tauri/target/release') {
+            Write-Host "Release directory contents:"
+            Get-ChildItem 'src-tauri/target/release' -Recurse -Include *.exe,*.msi | Select-Object FullName, Length | Format-Table
+          }
+          Write-Host "Bundle directory exists: $((Test-Path 'src-tauri/target/release/bundle'))"
+          if (Test-Path 'src-tauri/target/release/bundle') {
+            Write-Host "Bundle directory structure:"
+            Get-ChildItem 'src-tauri/target/release/bundle' -Recurse | Select-Object FullName | Format-Table
+          }
+
       - name: Create ZIP archives (Windows)
         if: github.event_name != 'pull_request' && matrix.platform == 'windows-latest'
         continue-on-error: true
         shell: pwsh
         run: |
-          if (-not (Test-Path "src-tauri/target/release/bundle")) {
-            Write-Host "Bundle directory does not exist, skipping ZIP creation"
-            exit 0
-          }
-          cd src-tauri/target/release/bundle
-          Get-ChildItem -Recurse -Include *.msi,*.exe | ForEach-Object {
-            $zipName = $_.BaseName + ".zip"
-            Compress-Archive -Path $_.FullName -DestinationPath $zipName -Force
-            Write-Host "Created: $zipName"
+          $bundlePath = "src-tauri/target/release/bundle"
+          $artifactsPath = "artifacts"
+          
+          # Check for bundle directory
+          if (-not (Test-Path $bundlePath)) {
+            Write-Host "Bundle directory does not exist, checking for direct build outputs..."
+            # Try to find MSI/EXE files directly in release directory
+            $buildFiles = Get-ChildItem -Path "src-tauri/target/release" -Recurse -Include *.msi,*.exe -ErrorAction SilentlyContinue
+            if ($buildFiles) {
+              Write-Host "Found build files in release directory:"
+              $buildFiles | Format-Table FullName, Length
+              New-Item -ItemType Directory -Force -Path $artifactsPath | Out-Null
+              $buildFiles | ForEach-Object {
+                $zipName = Join-Path $artifactsPath ($_.BaseName + ".zip")
+                Compress-Archive -Path $_.FullName -DestinationPath $zipName -Force
+                Write-Host "Created: $zipName"
+              }
+              exit 0
+            } else {
+              Write-Host "No bundle directory and no build files found, skipping ZIP creation"
+              exit 0
+            }
           }
           
-          # List all created ZIP files
-          Get-ChildItem *.zip | Format-Table Name, Length
-          
-          # Copy to artifacts folder
-          if (Test-Path *.zip) {
-            New-Item -ItemType Directory -Force -Path ../../../artifacts | Out-Null
-            Copy-Item *.zip ../../../artifacts/
+          # Bundle directory exists, proceed with normal ZIP creation
+          cd $bundlePath
+          $zipFiles = Get-ChildItem -Recurse -Include *.msi,*.exe
+          if ($zipFiles) {
+            $zipFiles | ForEach-Object {
+              $zipName = $_.BaseName + ".zip"
+              Compress-Archive -Path $_.FullName -DestinationPath $zipName -Force
+              Write-Host "Created: $zipName"
+            }
+            
+            # List all created ZIP files
+            Get-ChildItem *.zip | Format-Table Name, Length
+            
+            # Copy to artifacts folder
+            New-Item -ItemType Directory -Force -Path ../../../$artifactsPath | Out-Null
+            Copy-Item *.zip ../../../$artifactsPath/
+          } else {
+            Write-Host "No MSI or EXE files found in bundle directory"
           }
 
       - name: Upload ZIP artifacts
