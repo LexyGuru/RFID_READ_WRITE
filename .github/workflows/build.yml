@@ -218,3 +218,12 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+      - name: Upload ZIP files to release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/*.zip
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
