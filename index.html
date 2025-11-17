@@ -1,733 +1,795 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NFC Rust - NTAG216 URL Writer</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .container {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 600px;
-            width: 100%;
-        }
-
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 28px;
-        }
-
-        .subtitle {
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 14px;
-        }
-
-        .section {
-            margin-bottom: 30px;
-        }
-
-        .section-title {
-            font-size: 18px;
-            color: #333;
-            margin-bottom: 15px;
-            font-weight: 600;
-        }
-
-        .input-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #555;
-            font-weight: 500;
-            font-size: 14px;
-        }
-
-        input[type="text"] {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        button {
-            width: 100%;
-            padding: 14px 24px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            margin-top: 10px;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .status {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 14px;
-            display: none;
-        }
-
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            display: block;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-            display: block;
-        }
-
-        .status.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-            display: block;
-        }
-
-        .tag-info {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-            font-size: 14px;
-        }
-
-        .tag-info strong {
-            color: #333;
-        }
-
-        .uid-display {
-            font-family: 'Courier New', monospace;
-            color: #667eea;
-            word-break: break-all;
-        }
-
-        .url-display {
-            color: #764ba2;
-            word-break: break-all;
-            margin-top: 5px;
-        }
-
-        .divider {
-            height: 1px;
-            background: #e0e0e0;
-            margin: 30px 0;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid #ffffff;
-            border-radius: 50%;
-            border-top-color: transparent;
-            animation: spin 0.8s linear infinite;
-            margin-right: 8px;
-            vertical-align: middle;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NTAG216 NFC - Teljes Alkalmazás</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      text-align: center;
+      font-size: 2em;
+    }
+    
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+    }
+    
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 30px;
+      border-bottom: 2px solid #e0e0e0;
+      flex-wrap: wrap;
+    }
+    
+    .tab {
+      padding: 12px 20px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+      color: #666;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s;
+    }
+    
+    .tab:hover {
+      color: #667eea;
+    }
+    
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .section {
+      margin-bottom: 30px;
+    }
+    
+    .section-title {
+      font-size: 1.3em;
+      color: #333;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .input-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #555;
+      font-weight: 500;
+    }
+    
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+      font-family: inherit;
+    }
+    
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin-top: 10px;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    button.danger {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    button.warning {
+      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+      color: #333;
+    }
+    
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      font-weight: 500;
+      white-space: pre-wrap;
+    }
+    
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    
+    .status.warning {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .help-text {
+      font-size: 0.85em;
+      color: #888;
+      margin-top: 5px;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>📱 NFC Rust</h1>
-        <p class="subtitle">NTAG216 URL írás és olvasás</p>
-
-        <!-- NFC Olvasó státusz -->
-        <div class="section">
-            <div class="section-title">NFC Olvasó</div>
-            <div id="reader-status" class="status info">
-                NFC olvasó ellenőrzése...
-            </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <!-- NDEF írás -->
-        <div class="section">
-            <div class="section-title">✍️ NDEF üzenet írása címkére</div>
-            <div class="input-group">
-                <label for="record-type-select">Rekord típus:</label>
-                <select id="record-type-select" style="width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
-                    <option value="uri">🔗 URL/Link</option>
-                    <option value="text">📝 Szöveg</option>
-                    <option value="wifi">📶 WiFi konfiguráció</option>
-                    <option value="bluetooth">🔵 Bluetooth párosítás</option>
-                    <option value="vcard">👤 vCard (Névjegy)</option>
-                    <option value="email">📧 Email</option>
-                    <option value="sms">💬 SMS</option>
-                    <option value="phone">📞 Telefonszám</option>
-                </select>
-            </div>
-            
-            <!-- URI mezők -->
-            <div class="input-group" id="url-input-group">
-                <label for="url-input">URL cím:</label>
-                <input type="text" id="url-input" placeholder="https://example.com" value="https://www.tauri.app">
-            </div>
-            
-            <!-- Text mezők -->
-            <div class="input-group" id="text-input-group" style="display: none;">
-                <label for="text-input">Szöveg:</label>
-                <input type="text" id="text-input" placeholder="Írj ide egy szöveget...">
-            </div>
-            <div class="input-group" id="language-input-group" style="display: none;">
-                <label for="language-input">Nyelv kód (pl: hu, en):</label>
-                <input type="text" id="language-input" placeholder="hu" value="hu" maxlength="5">
-            </div>
-            
-            <!-- WiFi mezők -->
-            <div class="input-group" id="wifi-ssid-group" style="display: none;">
-                <label for="wifi-ssid-input">WiFi SSID:</label>
-                <input type="text" id="wifi-ssid-input" placeholder="WiFi hálózat neve">
-            </div>
-            <div class="input-group" id="wifi-password-group" style="display: none;">
-                <label for="wifi-password-input">WiFi jelszó:</label>
-                <input type="password" id="wifi-password-input" placeholder="WiFi jelszó">
-            </div>
-            <div class="input-group" id="wifi-security-group" style="display: none;">
-                <label for="wifi-security-select">Biztonsági típus:</label>
-                <select id="wifi-security-select" style="width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px;">
-                    <option value="wpa2">WPA2</option>
-                    <option value="wpa">WPA</option>
-                    <option value="wep">WEP</option>
-                    <option value="open">Nyitott (nincs jelszó)</option>
-                </select>
-            </div>
-            
-            <!-- Bluetooth mezők -->
-            <div class="input-group" id="bluetooth-mac-group" style="display: none;">
-                <label for="bluetooth-mac-input">Bluetooth MAC cím (XX:XX:XX:XX:XX:XX):</label>
-                <input type="text" id="bluetooth-mac-input" placeholder="00:11:22:33:44:55" maxlength="17">
-            </div>
-            
-            <!-- vCard mezők -->
-            <div class="input-group" id="vcard-name-group" style="display: none;">
-                <label for="vcard-name-input">Név:</label>
-                <input type="text" id="vcard-name-input" placeholder="Teljes név">
-            </div>
-            <div class="input-group" id="vcard-phone-group" style="display: none;">
-                <label for="vcard-phone-input">Telefonszám:</label>
-                <input type="text" id="vcard-phone-input" placeholder="+36 20 123 4567">
-            </div>
-            <div class="input-group" id="vcard-email-group" style="display: none;">
-                <label for="vcard-email-input">Email:</label>
-                <input type="email" id="vcard-email-input" placeholder="pelda@example.com">
-            </div>
-            <div class="input-group" id="vcard-org-group" style="display: none;">
-                <label for="vcard-org-input">Szervezet/Cég:</label>
-                <input type="text" id="vcard-org-input" placeholder="Cég neve">
-            </div>
-            
-            <!-- Email mezők -->
-            <div class="input-group" id="email-address-group" style="display: none;">
-                <label for="email-address-input">Email cím:</label>
-                <input type="email" id="email-address-input" placeholder="pelda@example.com">
-            </div>
-            <div class="input-group" id="email-subject-group" style="display: none;">
-                <label for="email-subject-input">Tárgy (opcionális):</label>
-                <input type="text" id="email-subject-input" placeholder="Email tárgya">
-            </div>
-            <div class="input-group" id="email-body-group" style="display: none;">
-                <label for="email-body-input">Üzenet (opcionális):</label>
-                <textarea id="email-body-input" placeholder="Email üzenet" rows="3" style="width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; font-family: inherit;"></textarea>
-            </div>
-            
-            <!-- SMS mezők -->
-            <div class="input-group" id="sms-phone-group" style="display: none;">
-                <label for="sms-phone-input">Telefonszám:</label>
-                <input type="text" id="sms-phone-input" placeholder="+36 20 123 4567">
-            </div>
-            <div class="input-group" id="sms-message-group" style="display: none;">
-                <label for="sms-message-input">Üzenet (opcionális):</label>
-                <textarea id="sms-message-input" placeholder="SMS üzenet" rows="3" style="width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; font-family: inherit;"></textarea>
-            </div>
-            
-            <!-- Phone mezők -->
-            <div class="input-group" id="phone-number-group" style="display: none;">
-                <label for="phone-number-input">Telefonszám:</label>
-                <input type="text" id="phone-number-input" placeholder="+36 20 123 4567">
-            </div>
-            
-            <!-- Password mező (ha password védelem aktív) -->
-            <div class="input-group" id="write-password-group">
-                <label for="write-password-input">🔒 Password (ha password védelem aktív):</label>
-                <input type="text" id="write-password-input" placeholder="Pl: FFFFFFFF vagy FF FF FF FF (opcionális)">
-                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                    Ha a címkére password védelem van beállítva, add meg a password-t itt az íráshoz.
-                </small>
-            </div>
-            
-            <button id="write-btn" onclick="writeNdef()">
-                NDEF üzenet írása NTAG216 címkére
-            </button>
-            <div id="write-status" class="status"></div>
-            <div id="write-tag-info" class="tag-info" style="display: none;"></div>
-        </div>
-
-        <div class="divider"></div>
-
-        <!-- NDEF olvasás -->
-        <div class="section">
-            <div class="section-title">📖 NDEF üzenet olvasása címkéből</div>
-            <button id="read-btn" onclick="readNdef()">
-                NDEF üzenet olvasása NTAG216 címkéből
-            </button>
-            <div id="read-status" class="status"></div>
-            <div id="read-tag-info" class="tag-info" style="display: none;"></div>
-        </div>
-
-        <!-- Password védelem -->
-        <div class="section">
-            <div class="section-title">🔒 Password védelem beállítása</div>
-            <div class="input-group">
-                <label for="password-input">Jelszó (hex vagy decimális):</label>
-                <input type="text" id="password-input" placeholder="00000000 vagy 0 (hex: 8 karakter, dec: szám)">
-                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                    Példák: "00000000" (hex), "12345678" (hex), "0" (decimális), "4294967295" (decimális max)
-                </small>
-            </div>
-            <button id="set-password-btn" onclick="setPassword()" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                🔒 Password beállítása
-            </button>
-            <button id="clear-password-btn" onclick="clearPassword()" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); margin-top: 10px;">
-                🔓 Password törlése
-            </button>
-            <div id="password-status" class="status"></div>
-        </div>
+  <div class="container">
+    <h1>📱 NTAG216 NFC</h1>
+    <p class="subtitle">Teljes funkcionalitás - Védelmi beállításokkal</p>
+    
+    <div class="tabs">
+      <button class="tab active" data-tab="ndef">NDEF Üzenetek</button>
+      <button class="tab" data-tab="security">🔒 Védelmi Beállítások</button>
+      <button class="tab" data-tab="raw">Raw Byte Műveletek</button>
+      <button class="tab" data-tab="info">ℹ️ Információ</button>
     </div>
+    
+    <!-- NDEF Üzenetek Tab -->
+    <div id="ndef" class="tab-content active">
+      <div class="section">
+        <h2 class="section-title">📝 URL Írása/Olvasása</h2>
+        <div class="input-group">
+          <label for="url">URL:</label>
+          <input type="text" id="url" placeholder="https://example.com" />
+        </div>
+        <div class="input-group">
+          <label for="writePassword">Password (opcionális, 8 hex karakter):</label>
+          <input type="text" id="writePassword" placeholder="12345678" maxlength="8" />
+          <div class="help-text">Ha a címke password védett, add meg a password-t (8 hex karakter = 4 byte)</div>
+        </div>
+        <div class="grid">
+          <button id="writeUrlBtn">📝 URL Írása</button>
+          <button id="readUrlBtn">📖 URL Olvasása</button>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h2 class="section-title">📄 Szöveg Írása/Olvasása</h2>
+        <div class="input-group">
+          <label for="text">Szöveg:</label>
+          <textarea id="text" placeholder="Írd ide a szöveget..."></textarea>
+        </div>
+        <div class="input-group">
+          <label for="language">Nyelv kód (pl: hu, en):</label>
+          <input type="text" id="language" placeholder="hu" value="hu" maxlength="5" />
+        </div>
+        <div class="input-group">
+          <label for="writePasswordText">Password (opcionális, 8 hex karakter):</label>
+          <input type="text" id="writePasswordText" placeholder="12345678" maxlength="8" />
+          <div class="help-text">Ha a címke password védett, add meg a password-t (8 hex karakter = 4 byte)</div>
+        </div>
+        <div class="grid">
+          <button id="writeTextBtn">📝 Szöveg Írása</button>
+          <button id="readTextBtn">📖 Szöveg Olvasása</button>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h2 class="section-title">👤 vCard Írása/Olvasása</h2>
+        <div class="input-group">
+          <label for="vcard">vCard adatok:</label>
+          <textarea id="vcard" placeholder="BEGIN:VCARD
+VERSION:3.0
+FN:Kovács János
+TEL:+3612345678
+EMAIL:kovacs@example.com
+END:VCARD"></textarea>
+          <div class="help-text">vCard 3.0 formátum</div>
+        </div>
+        <div class="input-group">
+          <label for="writePasswordVcard">Password (opcionális, 8 hex karakter):</label>
+          <input type="text" id="writePasswordVcard" placeholder="12345678" maxlength="8" />
+          <div class="help-text">Ha a címke password védett, add meg a password-t (8 hex karakter = 4 byte)</div>
+        </div>
+        <div class="grid">
+          <button id="writeVcardBtn">📝 vCard Írása</button>
+          <button id="readVcardBtn">📖 vCard Olvasása</button>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h2 class="section-title">🗑️ NDEF Törlés</h2>
+        <div class="input-group">
+          <label for="writePasswordClear">Password (opcionális, 8 hex karakter):</label>
+          <input type="text" id="writePasswordClear" placeholder="12345678" maxlength="8" />
+          <div class="help-text">Ha a címke password védett, add meg a password-t (8 hex karakter = 4 byte)</div>
+        </div>
+        <button id="clearNdefBtn" class="danger">🗑️ NDEF Üzenet Törlése</button>
+      </div>
+    </div>
+    
+    <!-- Védelmi Beállítások Tab -->
+    <div id="security" class="tab-content">
+      <div class="section">
+        <h2 class="section-title">🔐 Password Védelem</h2>
+        <div class="input-group">
+          <label for="password">Password (4 byte hex, pl: 12345678):</label>
+          <input type="text" id="password" placeholder="12345678" maxlength="8" />
+          <div class="help-text">8 hexadecimális karakter (4 byte)</div>
+        </div>
+        <div class="input-group">
+          <label for="pack">PACK (2 byte hex, pl: 8080):</label>
+          <input type="text" id="pack" placeholder="8080" maxlength="4" value="8080" />
+          <div class="help-text">4 hexadecimális karakter (2 byte), alapértelmezett: 8080</div>
+        </div>
+        <div class="input-group">
+          <label for="authLimit">Auth Limit (max próbálkozások):</label>
+          <input type="number" id="authLimit" placeholder="3" value="3" min="1" max="255" />
+          <div class="help-text">Hány rossz password után zárolódik a címke</div>
+        </div>
+        <div class="grid">
+          <button id="setPasswordBtn">🔐 Password Beállítása</button>
+          <button id="removePasswordBtn" class="danger">🔓 Password Eltávolítása</button>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h2 class="section-title">🔒 Read-Only Mód</h2>
+        <div class="status warning">
+          ⚠️ FIGYELEM: A Read-Only mód beállítása VISSZAFORDÍTHATATLAN! 
+          A címke soha többé nem lesz írható!
+        </div>
+        <button id="setReadOnlyBtn" class="warning">🔒 Read-Only Mód Beállítása</button>
+      </div>
+      
+      <div class="section">
+        <h2 class="section-title">📊 Konfiguráció Olvasása</h2>
+        <button id="readConfigBtn">📊 Konfiguráció Megjelenítése</button>
+      </div>
+    </div>
+    
+    <!-- Raw Byte Műveletek Tab -->
+    <div id="raw" class="tab-content">
+      <div class="section">
+        <h2 class="section-title">💾 Raw Byte Írása</h2>
+        <div class="input-group">
+          <label for="startBlock">Kezdő Block (4-129):</label>
+          <input type="number" id="startBlock" placeholder="4" value="4" min="4" max="129" />
+        </div>
+        <div class="input-group">
+          <label for="rawData">Adatok (hex, pl: 03 11 D1 01):</label>
+          <input type="text" id="rawData" placeholder="03 11 D1 01" />
+          <div class="help-text">Hexadecimális értékek szóközzel elválasztva</div>
+        </div>
+        <div class="input-group">
+          <label for="writePasswordRaw">Password (opcionális, 8 hex karakter):</label>
+          <input type="text" id="writePasswordRaw" placeholder="12345678" maxlength="8" />
+          <div class="help-text">Ha a címke password védett, add meg a password-t (8 hex karakter = 4 byte)</div>
+        </div>
+        <button id="writeRawBtn">💾 Raw Byte Írása</button>
+      </div>
+      
+      <div class="section">
+        <h2 class="section-title">📖 Raw Byte Olvasása</h2>
+        <div class="input-group">
+          <label for="readStartBlock">Kezdő Block (4-129):</label>
+          <input type="number" id="readStartBlock" placeholder="4" value="4" min="4" max="129" />
+        </div>
+        <div class="input-group">
+          <label for="readCount">Olvasandó byte-ok száma:</label>
+          <input type="number" id="readCount" placeholder="16" value="16" min="1" max="504" />
+        </div>
+        <button id="readRawBtn">📖 Raw Byte Olvasása</button>
+      </div>
+    </div>
+    
+    <!-- Információ Tab -->
+    <div id="info" class="tab-content">
+      <div class="section">
+        <h2 class="section-title">🔍 NFC Olvasók</h2>
+        <button id="checkReadersBtn">🔍 Olvasók Ellenőrzése</button>
+      </div>
+      
+      <div class="section">
+        <h2 class="section-title">ℹ️ Információ</h2>
+        <div class="status info">
+          <strong>NTAG216 NFC Alkalmazás</strong><br><br>
+          <strong>Funkciók:</strong><br>
+          • NDEF URL írása/olvasása<br>
+          • NDEF Text írása/olvasása<br>
+          • NDEF vCard írása/olvasása<br>
+          • Password védelem beállítása<br>
+          • Read-only mód (visszafordíthatatlan!)<br>
+          • Raw byte írása/olvasása<br>
+          • Konfiguráció olvasása<br>
+          • NDEF üzenet törlése<br><br>
+          <strong>Használat:</strong><br>
+          1. Válaszd ki a kívánt műveletet<br>
+          2. Töltsd ki a mezőket<br>
+          3. Kattints a gombra<br>
+          4. Helyezd a címkét az olvasóra<br>
+          5. Várd meg az eredményt
+        </div>
+      </div>
+    </div>
+    
+    <div id="status"></div>
+  </div>
 
-    <script type="module">
-        import { invoke } from '@tauri-apps/api/tauri';
-        import { open } from '@tauri-apps/api/shell';
-
-        window.invoke = invoke;
-        window.openUrl = open;
-
-        // NFC olvasó ellenőrzése
-        async function checkNFC() {
-            const statusEl = document.getElementById('reader-status');
-            try {
-                const available = await invoke('check_nfc_available');
-                if (available) {
-                    const readers = await invoke('list_nfc_readers');
-                    statusEl.className = 'status success';
-                    statusEl.textContent = `✅ NFC olvasó elérhető: ${readers.join(', ')}`;
-                } else {
-                    statusEl.className = 'status error';
-                    statusEl.textContent = '❌ Nincs NFC olvasó csatlakoztatva';
-                }
-            } catch (error) {
-                statusEl.className = 'status error';
-                statusEl.textContent = `❌ Hiba: ${error}`;
-            }
+  <script type="module">
+    import { invoke } from '@tauri-apps/api/tauri';
+    
+    // Tab kezelés
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const tabName = tab.dataset.tab;
+        
+        // Tab aktív állapot
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        // Content megjelenítés
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById(tabName).classList.add('active');
+      });
+    });
+    
+    // Status megjelenítés
+    const statusDiv = document.getElementById('status');
+    function showStatus(message, type) {
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${type}`;
+      statusDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    
+    // Helper: hex string -> byte array
+    function hexToBytes(hex) {
+      const cleaned = hex.replace(/\s+/g, '');
+      const bytes = [];
+      for (let i = 0; i < cleaned.length; i += 2) {
+        bytes.push(parseInt(cleaned.substr(i, 2), 16));
+      }
+      return bytes;
+    }
+    
+    // Helper: byte array -> hex string
+    function bytesToHex(bytes) {
+      return Array.from(bytes).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+    }
+    
+    // URL műveletek
+    document.getElementById('writeUrlBtn').addEventListener('click', async () => {
+      const url = document.getElementById('url').value.trim();
+      if (!url) {
+        showStatus('Kérlek adj meg egy URL-t!', 'error');
+        return;
+      }
+      
+      const passwordHex = document.getElementById('writePassword').value.trim();
+      let password = null;
+      if (passwordHex) {
+        if (passwordHex.length !== 8) {
+          showStatus('A password pontosan 8 hex karakter kell legyen!', 'error');
+          return;
         }
-
-        // Rekord típus változtatás kezelése
-        document.getElementById('record-type-select').addEventListener('change', function() {
-            const recordType = this.value;
-            
-            // Összes mező elrejtése
-            document.getElementById('url-input-group').style.display = 'none';
-            document.getElementById('text-input-group').style.display = 'none';
-            document.getElementById('language-input-group').style.display = 'none';
-            document.getElementById('wifi-ssid-group').style.display = 'none';
-            document.getElementById('wifi-password-group').style.display = 'none';
-            document.getElementById('wifi-security-group').style.display = 'none';
-            document.getElementById('bluetooth-mac-group').style.display = 'none';
-            document.getElementById('vcard-name-group').style.display = 'none';
-            document.getElementById('vcard-phone-group').style.display = 'none';
-            document.getElementById('vcard-email-group').style.display = 'none';
-            document.getElementById('vcard-org-group').style.display = 'none';
-            document.getElementById('email-address-group').style.display = 'none';
-            document.getElementById('email-subject-group').style.display = 'none';
-            document.getElementById('email-body-group').style.display = 'none';
-            document.getElementById('sms-phone-group').style.display = 'none';
-            document.getElementById('sms-message-group').style.display = 'none';
-            document.getElementById('phone-number-group').style.display = 'none';
-            
-            // Releváns mezők megjelenítése
-            if (recordType === 'uri') {
-                document.getElementById('url-input-group').style.display = 'block';
-            } else if (recordType === 'text') {
-                document.getElementById('text-input-group').style.display = 'block';
-                document.getElementById('language-input-group').style.display = 'block';
-            } else if (recordType === 'wifi') {
-                document.getElementById('wifi-ssid-group').style.display = 'block';
-                document.getElementById('wifi-password-group').style.display = 'block';
-                document.getElementById('wifi-security-group').style.display = 'block';
-            } else if (recordType === 'bluetooth') {
-                document.getElementById('bluetooth-mac-group').style.display = 'block';
-            } else if (recordType === 'vcard') {
-                document.getElementById('vcard-name-group').style.display = 'block';
-                document.getElementById('vcard-phone-group').style.display = 'block';
-                document.getElementById('vcard-email-group').style.display = 'block';
-                document.getElementById('vcard-org-group').style.display = 'block';
-            } else if (recordType === 'email') {
-                document.getElementById('email-address-group').style.display = 'block';
-                document.getElementById('email-subject-group').style.display = 'block';
-                document.getElementById('email-body-group').style.display = 'block';
-            } else if (recordType === 'sms') {
-                document.getElementById('sms-phone-group').style.display = 'block';
-                document.getElementById('sms-message-group').style.display = 'block';
-            } else if (recordType === 'phone') {
-                document.getElementById('phone-number-group').style.display = 'block';
-            }
+        password = hexToBytes(passwordHex);
+        if (password.length !== 4) {
+          showStatus('Érvénytelen hex formátum!', 'error');
+          return;
+        }
+      }
+      
+      const btn = document.getElementById('writeUrlBtn');
+      btn.disabled = true;
+      showStatus('URL írása folyamatban... Helyezd a címkét az olvasóra.', 'info');
+      try {
+        const result = await invoke('write_url', { url, password });
+        showStatus(result, 'success');
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    
+    document.getElementById('readUrlBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('readUrlBtn');
+      btn.disabled = true;
+      showStatus('URL olvasása folyamatban... Helyezd a címkét az olvasóra.', 'info');
+      try {
+        const url = await invoke('read_url');
+        document.getElementById('url').value = url;
+        showStatus(`Sikeres olvasás! ✅\nURL: ${url}`, 'success');
+        setTimeout(() => window.open(url, '_blank'), 500);
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    
+    // Text műveletek
+    document.getElementById('writeTextBtn').addEventListener('click', async () => {
+      const text = document.getElementById('text').value.trim();
+      const language = document.getElementById('language').value.trim() || 'hu';
+      if (!text) {
+        showStatus('Kérlek adj meg egy szöveget!', 'error');
+        return;
+      }
+      
+      const passwordHex = document.getElementById('writePasswordText').value.trim();
+      let password = null;
+      if (passwordHex) {
+        if (passwordHex.length !== 8) {
+          showStatus('A password pontosan 8 hex karakter kell legyen!', 'error');
+          return;
+        }
+        password = hexToBytes(passwordHex);
+        if (password.length !== 4) {
+          showStatus('Érvénytelen hex formátum!', 'error');
+          return;
+        }
+      }
+      
+      const btn = document.getElementById('writeTextBtn');
+      btn.disabled = true;
+      showStatus('Szöveg írása folyamatban... Helyezd a címkét az olvasóra.', 'info');
+      try {
+        const result = await invoke('write_text', { text, language, password });
+        showStatus(result, 'success');
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    
+    document.getElementById('readTextBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('readTextBtn');
+      btn.disabled = true;
+      showStatus('Szöveg olvasása folyamatban... Helyezd a címkét az olvasóra.', 'info');
+      try {
+        const result = await invoke('read_text');
+        showStatus(`Sikeres olvasás! ✅\n${result}`, 'success');
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    
+    // vCard műveletek
+    document.getElementById('writeVcardBtn').addEventListener('click', async () => {
+      const vcard = document.getElementById('vcard').value.trim();
+      if (!vcard) {
+        showStatus('Kérlek adj meg vCard adatokat!', 'error');
+        return;
+      }
+      
+      const passwordHex = document.getElementById('writePasswordVcard').value.trim();
+      let password = null;
+      if (passwordHex) {
+        if (passwordHex.length !== 8) {
+          showStatus('A password pontosan 8 hex karakter kell legyen!', 'error');
+          return;
+        }
+        password = hexToBytes(passwordHex);
+        if (password.length !== 4) {
+          showStatus('Érvénytelen hex formátum!', 'error');
+          return;
+        }
+      }
+      
+      const btn = document.getElementById('writeVcardBtn');
+      btn.disabled = true;
+      showStatus('vCard írása folyamatban... Helyezd a címkét az olvasóra.', 'info');
+      try {
+        const result = await invoke('write_vcard', { vcard, password });
+        showStatus(result, 'success');
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    
+    document.getElementById('readVcardBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('readVcardBtn');
+      btn.disabled = true;
+      showStatus('vCard olvasása folyamatban... Helyezd a címkét az olvasóra.', 'info');
+      try {
+        const result = await invoke('read_vcard');
+        document.getElementById('vcard').value = result;
+        showStatus('Sikeres olvasás! ✅', 'success');
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    
+    // Password műveletek
+    document.getElementById('setPasswordBtn').addEventListener('click', async () => {
+      const passwordHex = document.getElementById('password').value.trim();
+      const packHex = document.getElementById('pack').value.trim() || '8080';
+      const authLimit = parseInt(document.getElementById('authLimit').value) || 3;
+      
+      if (passwordHex.length !== 8) {
+        showStatus('A password pontosan 8 hex karakter kell legyen!', 'error');
+        return;
+      }
+      
+      try {
+        const password = hexToBytes(passwordHex);
+        const pack = hexToBytes(packHex);
+        
+        if (password.length !== 4 || pack.length !== 2) {
+          showStatus('Érvénytelen hex formátum!', 'error');
+          return;
+        }
+        
+        const btn = document.getElementById('setPasswordBtn');
+        btn.disabled = true;
+        showStatus('Password beállítása folyamatban... Helyezd a címkét az olvasóra.', 'info');
+        
+        console.log('Frontend: set_password hívás:', { password, pack, authLimit });
+        const result = await invoke('set_password', { 
+          password, 
+          pack, 
+          authLimit: authLimit  // camelCase Tauri v1-ben
         });
-
-        // NDEF üzenet írása
-        window.writeNdef = async function() {
-            const recordTypeSelect = document.getElementById('record-type-select');
-            const writeBtn = document.getElementById('write-btn');
-            const statusEl = document.getElementById('write-status');
-            const tagInfoEl = document.getElementById('write-tag-info');
-
-            const recordType = recordTypeSelect.value;
-            writeBtn.disabled = true;
-            writeBtn.innerHTML = '<span class="loading"></span>Írás folyamatban... Olvass be egy NTAG216 címkét!';
-            statusEl.className = 'status info';
-            statusEl.textContent = '⏳ Várakozás címkére... Olvass be egy NTAG216 címkét az olvasóra!';
-            tagInfoEl.style.display = 'none';
-
-            try {
-                // Password mező értéke (ha meg van adva)
-                const writePassword = document.getElementById('write-password-input').value.trim();
-                const password = writePassword ? writePassword : null;
-                
-                let result;
-                if (recordType === 'uri') {
-                    const url = document.getElementById('url-input').value.trim();
-                    if (!url) throw new Error('Kérlek adj meg egy URL-t!');
-                    try { new URL(url); } catch { throw new Error('Érvénytelen URL formátum!'); }
-                    result = await invoke('write_url_to_ntag216', { url, password });
-                } else if (recordType === 'text') {
-                    const text = document.getElementById('text-input').value.trim();
-                    const language = document.getElementById('language-input').value.trim() || 'hu';
-                    if (!text) throw new Error('Kérlek adj meg egy szöveget!');
-                    result = await invoke('write_text_to_ntag216', { text, language });
-                } else if (recordType === 'wifi') {
-                    const ssid = document.getElementById('wifi-ssid-input').value.trim();
-                    const password = document.getElementById('wifi-password-input').value.trim();
-                    const security = document.getElementById('wifi-security-select').value;
-                    if (!ssid) throw new Error('Kérlek adj meg egy WiFi SSID-t!');
-                    result = await invoke('write_wifi_to_ntag216', { ssid, password, security });
-                } else if (recordType === 'bluetooth') {
-                    const mac = document.getElementById('bluetooth-mac-input').value.trim();
-                    if (!mac) throw new Error('Kérlek adj meg egy Bluetooth MAC címet!');
-                    if (!/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/.test(mac)) {
-                        throw new Error('Érvénytelen MAC cím formátum! Használd a XX:XX:XX:XX:XX:XX formátumot.');
-                    }
-                    result = await invoke('write_bluetooth_to_ntag216', { mac_address: mac });
-                } else if (recordType === 'vcard') {
-                    const name = document.getElementById('vcard-name-input').value.trim();
-                    const phone = document.getElementById('vcard-phone-input').value.trim();
-                    const email = document.getElementById('vcard-email-input').value.trim();
-                    const org = document.getElementById('vcard-org-input').value.trim();
-                    if (!name && !phone && !email) throw new Error('Kérlek adj meg legalább egy adatot (név, telefon vagy email)!');
-                    result = await invoke('write_vcard_to_ntag216', { name, phone, email, organization: org });
-                } else if (recordType === 'email') {
-                    const email = document.getElementById('email-address-input').value.trim();
-                    const subject = document.getElementById('email-subject-input').value.trim();
-                    const body = document.getElementById('email-body-input').value.trim();
-                    if (!email) throw new Error('Kérlek adj meg egy email címet!');
-                    result = await invoke('write_email_to_ntag216', { email, subject, body });
-                } else if (recordType === 'sms') {
-                    const phone = document.getElementById('sms-phone-input').value.trim();
-                    const message = document.getElementById('sms-message-input').value.trim();
-                    if (!phone) throw new Error('Kérlek adj meg egy telefonszámot!');
-                    result = await invoke('write_sms_to_ntag216', { phone, message });
-                } else if (recordType === 'phone') {
-                    const phone = document.getElementById('phone-number-input').value.trim();
-                    if (!phone) throw new Error('Kérlek adj meg egy telefonszámot!');
-                    result = await invoke('write_phone_to_ntag216', { phone });
-                } else {
-                    throw new Error('Ismeretlen rekord típus!');
-                }
-                
-                writeBtn.disabled = false;
-                writeBtn.textContent = 'NDEF üzenet írása NTAG216 címkére';
-                
-                statusEl.className = 'status success';
-                const typeNames = {
-                    'uri': 'URL', 'text': 'Szöveg', 'wifi': 'WiFi konfiguráció',
-                    'bluetooth': 'Bluetooth párosítás', 'vcard': 'vCard', 'email': 'Email',
-                    'sms': 'SMS', 'phone': 'Telefonszám'
-                };
-                statusEl.textContent = `✅ ${typeNames[recordType] || 'Üzenet'} sikeresen írva a címkére!`;
-                
-                tagInfoEl.style.display = 'block';
-                let infoHtml = `<strong>UID:</strong> <span class="uid-display">${result.uid.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(':')}</span><br>`;
-                if (result.url) infoHtml += `<strong>URL:</strong> <span class="url-display">${result.url}</span><br>`;
-                if (result.text) infoHtml += `<strong>Szöveg:</strong> ${result.text}<br><strong>Nyelv:</strong> ${result.language || 'N/A'}<br>`;
-                if (result.wifi_ssid) infoHtml += `<strong>WiFi SSID:</strong> ${result.wifi_ssid}<br><strong>Biztonság:</strong> ${result.wifi_security || 'N/A'}<br>`;
-                if (result.bluetooth_mac) infoHtml += `<strong>Bluetooth MAC:</strong> ${result.bluetooth_mac}<br>`;
-                if (result.vcard_name) infoHtml += `<strong>Név:</strong> ${result.vcard_name}<br>`;
-                if (result.vcard_phone) infoHtml += `<strong>Telefon:</strong> ${result.vcard_phone}<br>`;
-                if (result.vcard_email) infoHtml += `<strong>Email:</strong> ${result.vcard_email}<br>`;
-                if (result.email_address) infoHtml += `<strong>Email:</strong> ${result.email_address}<br>`;
-                if (result.sms_phone) infoHtml += `<strong>SMS Telefon:</strong> ${result.sms_phone}<br>`;
-                if (result.phone_number) infoHtml += `<strong>Telefon:</strong> ${result.phone_number}<br>`;
-                tagInfoEl.innerHTML = infoHtml;
-            } catch (error) {
-                writeBtn.disabled = false;
-                writeBtn.textContent = 'NDEF üzenet írása NTAG216 címkére';
-                statusEl.className = 'status error';
-                statusEl.textContent = `❌ Hiba: ${error}`;
-            }
-        };
-
-        // URL írása (kompatibilitás)
-        window.writeUrl = async function() {
-            const urlInput = document.getElementById('url-input');
-            const writeBtn = document.getElementById('write-btn');
-            const statusEl = document.getElementById('write-status');
-            const tagInfoEl = document.getElementById('write-tag-info');
-
-            const url = urlInput.value.trim();
-            if (!url) {
-                statusEl.className = 'status error';
-                statusEl.textContent = '❌ Kérlek adj meg egy URL-t!';
-                return;
-            }
-
-            // URL validálás
-            try {
-                new URL(url);
-            } catch {
-                statusEl.className = 'status error';
-                statusEl.textContent = '❌ Érvénytelen URL formátum!';
-                return;
-            }
-
-            writeBtn.disabled = true;
-            writeBtn.innerHTML = '<span class="loading"></span>Írás folyamatban... Olvass be egy NTAG216 címkét!';
-            statusEl.className = 'status info';
-            statusEl.textContent = '⏳ Várakozás címkére... Olvass be egy NTAG216 címkét az olvasóra!';
-            tagInfoEl.style.display = 'none';
-
-            try {
-                const result = await invoke('write_url_to_ntag216', { url });
-                
-                writeBtn.disabled = false;
-                writeBtn.textContent = 'URL írása NTAG216 címkére';
-                
-                statusEl.className = 'status success';
-                statusEl.textContent = '✅ URL sikeresen írva a címkére!';
-                
-                tagInfoEl.style.display = 'block';
-                tagInfoEl.innerHTML = `
-                    <strong>UID:</strong> <span class="uid-display">${result.uid.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(':')}</span><br>
-                    <strong>URL:</strong> <span class="url-display">${result.url || 'N/A'}</span>
-                `;
-            } catch (error) {
-                writeBtn.disabled = false;
-                writeBtn.textContent = 'URL írása NTAG216 címkére';
-                
-                statusEl.className = 'status error';
-                statusEl.textContent = `❌ Hiba: ${error}`;
-            }
-        };
-
-        // NDEF üzenet olvasása
-        window.readNdef = async function() {
-            const readBtn = document.getElementById('read-btn');
-            const statusEl = document.getElementById('read-status');
-            const tagInfoEl = document.getElementById('read-tag-info');
-
-            readBtn.disabled = true;
-            readBtn.innerHTML = '<span class="loading"></span>Olvasás folyamatban... Olvass be egy NTAG216 címkét!';
-            statusEl.className = 'status info';
-            statusEl.textContent = '⏳ Várakozás címkére... Olvass be egy NTAG216 címkét az olvasóra!';
-            tagInfoEl.style.display = 'none';
-
-            try {
-                const result = await invoke('read_ntag216');
-                
-                readBtn.disabled = false;
-                readBtn.textContent = 'NDEF üzenet olvasása NTAG216 címkéből';
-                
-                tagInfoEl.style.display = 'block';
-                let infoHtml = `<strong>UID:</strong> <span class="uid-display">${result.uid.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(':')}</span><br>`;
-                
-                const typeEmojis = {
-                    'uri': '🔗', 'text': '📝', 'wifi': '📶', 'bluetooth': '🔵',
-                    'vcard': '👤', 'email': '📧', 'sms': '💬', 'phone': '📞'
-                };
-                const typeNames = {
-                    'uri': 'URL', 'text': 'Szöveg', 'wifi': 'WiFi', 'bluetooth': 'Bluetooth',
-                    'vcard': 'vCard', 'email': 'Email', 'sms': 'SMS', 'phone': 'Telefon'
-                };
-                
-                const recordType = result.record_type || 'unknown';
-                infoHtml += `<strong>Típus:</strong> ${typeEmojis[recordType] || '❓'} ${typeNames[recordType] || 'Ismeretlen'}<br>`;
-                
-                if (result.url) infoHtml += `<strong>URL:</strong> <span class="url-display">${result.url}</span><br>`;
-                if (result.text) infoHtml += `<strong>Szöveg:</strong> ${result.text}<br><strong>Nyelv:</strong> ${result.language || 'N/A'}<br>`;
-                if (result.wifi_ssid) infoHtml += `<strong>WiFi SSID:</strong> ${result.wifi_ssid}<br><strong>Biztonság:</strong> ${result.wifi_security || 'N/A'}<br>`;
-                if (result.bluetooth_mac) infoHtml += `<strong>Bluetooth MAC:</strong> ${result.bluetooth_mac}<br>`;
-                if (result.vcard_name) infoHtml += `<strong>Név:</strong> ${result.vcard_name}<br>`;
-                if (result.vcard_phone) infoHtml += `<strong>Telefon:</strong> ${result.vcard_phone}<br>`;
-                if (result.vcard_email) infoHtml += `<strong>Email:</strong> ${result.vcard_email}<br>`;
-                if (result.vcard_organization) infoHtml += `<strong>Szervezet:</strong> ${result.vcard_organization}<br>`;
-                if (result.email_address) infoHtml += `<strong>Email:</strong> ${result.email_address}<br>`;
-                if (result.email_subject) infoHtml += `<strong>Tárgy:</strong> ${result.email_subject}<br>`;
-                if (result.sms_phone) infoHtml += `<strong>SMS Telefon:</strong> ${result.sms_phone}<br>`;
-                if (result.sms_message) infoHtml += `<strong>Üzenet:</strong> ${result.sms_message}<br>`;
-                if (result.phone_number) infoHtml += `<strong>Telefon:</strong> ${result.phone_number}<br>`;
-                
-                if (!result.url && !result.text && !result.wifi_ssid && !result.bluetooth_mac && 
-                    !result.vcard_name && !result.email_address && !result.sms_phone && !result.phone_number) {
-                    infoHtml += '<em>Nincs NDEF üzenet a címkén vagy ismeretlen típus</em>';
-                }
-                tagInfoEl.innerHTML = infoHtml;
-
-                statusEl.className = 'status success';
-                if (result.record_type === 'uri' && result.url) {
-                    statusEl.textContent = `✅ URL olvasva: ${result.url}`;
-                    try {
-                        await open(result.url);
-                        statusEl.textContent += ' → URL megnyitva a böngészőben!';
-                    } catch (openError) {
-                        console.error('URL megnyitási hiba:', openError);
-                    }
-                } else if (result.record_type === 'text' && result.text) {
-                    statusEl.textContent = `✅ Szöveg olvasva: ${result.text}`;
-                } else if (result.record_type) {
-                    statusEl.textContent = `✅ ${typeNames[result.record_type] || 'Rekord'} olvasva`;
-                } else {
-                    statusEl.className = 'status info';
-                    statusEl.textContent = 'ℹ️ Címke olvasva, de nincs NDEF üzenet.';
-                }
-            } catch (error) {
-                readBtn.disabled = false;
-                readBtn.textContent = 'NDEF üzenet olvasása NTAG216 címkéből';
-                
-                statusEl.className = 'status error';
-                statusEl.textContent = `❌ Hiba: ${error}`;
-            }
-        };
-
-        // URL olvasása (kompatibilitás)
-        window.readUrl = async function() {
-            await window.readNdef();
-        };
-
-        // Password beállítása
-        window.setPassword = async function() {
-            const passwordInput = document.getElementById('password-input');
-            const setPasswordBtn = document.getElementById('set-password-btn');
-            const statusEl = document.getElementById('password-status');
-            const password = passwordInput.value.trim();
-
-            if (!password) {
-                statusEl.className = 'status error';
-                statusEl.textContent = '❌ Kérlek adj meg egy jelszót!';
-                return;
-            }
-
-            setPasswordBtn.disabled = true;
-            setPasswordBtn.innerHTML = '<span class="loading"></span>Password beállítása... Olvass be egy NTAG216 címkét!';
-            statusEl.className = 'status info';
-            statusEl.textContent = '⏳ Várakozás címkére... Olvass be egy NTAG216 címkét az olvasóra!';
-
-            try {
-                const result = await invoke('set_ntag216_password', { password });
-                setPasswordBtn.disabled = false;
-                setPasswordBtn.textContent = '🔒 Password beállítása';
-                statusEl.className = 'status success';
-                statusEl.textContent = `✅ ${result}`;
-                passwordInput.value = '';
-            } catch (error) {
-                setPasswordBtn.disabled = false;
-                setPasswordBtn.textContent = '🔒 Password beállítása';
-                statusEl.className = 'status error';
-                statusEl.textContent = `❌ Hiba: ${error}`;
-            }
-        };
-
-        // Password törlése
-        window.clearPassword = async function() {
-            const clearPasswordBtn = document.getElementById('clear-password-btn');
-            const statusEl = document.getElementById('password-status');
-
-            clearPasswordBtn.disabled = true;
-            clearPasswordBtn.innerHTML = '<span class="loading"></span>Password törlése... Olvass be egy NTAG216 címkét!';
-            statusEl.className = 'status info';
-            statusEl.textContent = '⏳ Várakozás címkére... Olvass be egy NTAG216 címkét az olvasóra!';
-
-            try {
-                const result = await invoke('clear_ntag216_password');
-                clearPasswordBtn.disabled = false;
-                clearPasswordBtn.textContent = '🔓 Password törlése';
-                statusEl.className = 'status success';
-                statusEl.textContent = `✅ ${result}`;
-            } catch (error) {
-                clearPasswordBtn.disabled = false;
-                clearPasswordBtn.textContent = '🔓 Password törlése';
-                statusEl.className = 'status error';
-                statusEl.textContent = `❌ Hiba: ${error}`;
-            }
-        };
-
-        // Oldal betöltésekor NFC ellenőrzés
-        checkNFC();
-    </script>
+        showStatus(result, 'success');
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        document.getElementById('setPasswordBtn').disabled = false;
+      }
+    });
+    
+    document.getElementById('removePasswordBtn').addEventListener('click', async () => {
+      if (!confirm('Biztosan eltávolítod a password védelmet?')) return;
+      
+      const btn = document.getElementById('removePasswordBtn');
+      btn.disabled = true;
+      showStatus('Password eltávolítása folyamatban... Helyezd a címkét az olvasóra.', 'info');
+      try {
+        const result = await invoke('remove_password');
+        showStatus(result, 'success');
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    
+    // Read-only
+    document.getElementById('setReadOnlyBtn').addEventListener('click', async () => {
+      if (!confirm('⚠️ FIGYELEM: A Read-Only mód VISSZAFORDÍTHATATLAN!\n\nBiztosan folytatod?')) {
+        return;
+      }
+      
+      const btn = document.getElementById('setReadOnlyBtn');
+      btn.disabled = true;
+      showStatus('Read-only mód beállítása folyamatban... Helyezd a címkét az olvasóra.', 'warning');
+      try {
+        const result = await invoke('set_read_only');
+        showStatus(result, 'warning');
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    
+    // Konfiguráció olvasása
+    document.getElementById('readConfigBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('readConfigBtn');
+      btn.disabled = true;
+      showStatus('Konfiguráció olvasása folyamatban... Helyezd a címkét az olvasóra.', 'info');
+      try {
+        const result = await invoke('read_config');
+        showStatus(`Konfiguráció:\n${result}`, 'info');
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    
+    // NDEF törlés
+    document.getElementById('clearNdefBtn').addEventListener('click', async () => {
+      if (!confirm('Biztosan törölni szeretnéd az NDEF üzenetet?')) return;
+      
+      const passwordHex = document.getElementById('writePasswordClear').value.trim();
+      let password = null;
+      if (passwordHex) {
+        if (passwordHex.length !== 8) {
+          showStatus('A password pontosan 8 hex karakter kell legyen!', 'error');
+          return;
+        }
+        password = hexToBytes(passwordHex);
+        if (password.length !== 4) {
+          showStatus('Érvénytelen hex formátum!', 'error');
+          return;
+        }
+      }
+      
+      const btn = document.getElementById('clearNdefBtn');
+      btn.disabled = true;
+      showStatus('NDEF törlése folyamatban... Helyezd a címkét az olvasóra.', 'info');
+      try {
+        const result = await invoke('clear_ndef', { password });
+        showStatus(result, 'success');
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    
+    // Raw byte írása
+    document.getElementById('writeRawBtn').addEventListener('click', async () => {
+      const startBlock = parseInt(document.getElementById('startBlock').value) || 4;
+      const rawDataHex = document.getElementById('rawData').value.trim();
+      
+      if (!rawDataHex) {
+        showStatus('Kérlek adj meg hex adatokat!', 'error');
+        return;
+      }
+      
+      const passwordHex = document.getElementById('writePasswordRaw').value.trim();
+      let password = null;
+      if (passwordHex) {
+        if (passwordHex.length !== 8) {
+          showStatus('A password pontosan 8 hex karakter kell legyen!', 'error');
+          return;
+        }
+        password = hexToBytes(passwordHex);
+        if (password.length !== 4) {
+          showStatus('Érvénytelen hex formátum!', 'error');
+          return;
+        }
+      }
+      
+      try {
+        const data = hexToBytes(rawDataHex);
+        const btn = document.getElementById('writeRawBtn');
+        btn.disabled = true;
+        showStatus('Raw byte írása folyamatban... Helyezd a címkét az olvasóra.', 'info');
+        
+        const result = await invoke('write_raw', { start_block: startBlock, data, password });
+        showStatus(result, 'success');
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        document.getElementById('writeRawBtn').disabled = false;
+      }
+    });
+    
+    // Raw byte olvasása
+    document.getElementById('readRawBtn').addEventListener('click', async () => {
+      const startBlock = parseInt(document.getElementById('readStartBlock').value) || 4;
+      const count = parseInt(document.getElementById('readCount').value) || 16;
+      
+      const btn = document.getElementById('readRawBtn');
+      btn.disabled = true;
+      showStatus('Raw byte olvasása folyamatban... Helyezd a címkét az olvasóra.', 'info');
+      try {
+        const result = await invoke('read_raw', { start_block: startBlock, count });
+        showStatus(`Olvasott adatok (hex):\n${result}`, 'success');
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    
+    // Olvasók ellenőrzése
+    document.getElementById('checkReadersBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('checkReadersBtn');
+      btn.disabled = true;
+      showStatus('Olvasók ellenőrzése...', 'info');
+      try {
+        const readers = await invoke('list_readers');
+        if (readers && readers.length > 0) {
+          showStatus(`Csatlakoztatott olvasók:\n${readers.join('\n')}`, 'success');
+        } else {
+          showStatus('Nincs NFC olvasó csatlakoztatva!', 'error');
+        }
+      } catch (error) {
+        showStatus(`Hiba: ${error}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
 </body>
 </html>
-

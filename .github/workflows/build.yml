@@ -2,61 +2,62 @@ name: Build Tauri App
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [ main, master ]
   pull_request:
-    branches:
-      - main
-      - master
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build-tauri:
-    permissions:
-      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: 'macos-latest'
-            artifact_name: 'NFC-Rust-macos'
-          - platform: 'ubuntu-20.04'
-            artifact_name: 'NFC-Rust-linux'
+            args: ''
+          - platform: 'ubuntu-latest'
+            args: ''
           - platform: 'windows-latest'
-            artifact_name: 'NFC-Rust-windows'
+            args: ''
 
     runs-on: ${{ matrix.platform }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies (Ubuntu)
-        if: matrix.platform == 'ubuntu-20.04'
+      - name: Install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.0-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
+          sudo apt-get install -y libwebkit2gtk-4.0-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
             libssl-dev \
-            libayatana-appindicator3-dev
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            pcscd \
+            libpcsclite1 \
+            libpcsclite-dev
+          sudo systemctl start pcscd
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
+      - name: Install dependencies (macos only)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          brew install pkg-config
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
 
       - name: Install frontend dependencies
         run: npm ci
@@ -65,43 +66,10 @@ jobs:
         run: npm run build
 
       - name: Build Tauri app
-        run: |
-          npm run tauri build
-        env:
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: |
-            src-tauri/target/release/bundle/**
-          retention-days: 30
-
-  create-release:
-    needs: build-tauri
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ./artifacts
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            artifacts/**/*
-          draft: true
-          prerelease: false
-          generate_release_notes: true
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: ./src-tauri
+          args: ${{ matrix.args }}
 

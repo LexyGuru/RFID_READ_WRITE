@@ -1,13 +1,11 @@
 [package]
 name = "nfc-rust"
 version = "0.1.0"
-description = "Tauri NFC app for NTAG216 URL writing"
+description = "NTAG216 NFC alkalmazás"
 authors = ["you"]
 license = ""
 repository = ""
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
 tauri-build = { version = "1.5", features = [] }
@@ -16,11 +14,12 @@ tauri-build = { version = "1.5", features = [] }
 tauri = { version = "1.5", features = ["shell-open"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-pcsc = "2.9"
-urlencoding = "2.1"
+pcsc = { version = "2.9", optional = true }
+anyhow = "1.0"
+libc = "0.2"
 
 [features]
-# This feature is used for production builds or when `devPath` points to the filesystem
-# DO NOT REMOVE!!
+default = ["pcsc"]
+pcsc = ["dep:pcsc"]
+libnfc = []
 custom-protocol = ["tauri/custom-protocol"]
-

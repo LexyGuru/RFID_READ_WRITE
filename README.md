@@ -1,148 +1,37 @@
-# Tauri NFC Alkalmazás - NTAG216 és Mifare Classic támogatás
+# NTAG216 NFC Alkalmazás
+
+Egy Tauri alapú asztali alkalmazás, amely kizárólag **NTAG216** NFC címkéket támogat.
 
 ## Áttekintés
 
-Ez a projekt egy Tauri alapú asztali alkalmazás, amely NFC olvasót kezel és képes írni/olvasni **NTAG216** és **Mifare Classic** címkéket.
+Ez az alkalmazás PC/SC API-t használ az NFC olvasó kommunikációjához, és NDEF formátumban ír/olvas URL-eket NTAG216 címkéken.
 
-## Fontos: Parancsok használata
+### NTAG216 Specifikáció
 
-⚠️ **FIGYELEM**: A projekt Tauri v1-re van beállítva. Használd az **npm scriptet**, ne a `cargo tauri` parancsot közvetlenül!
-
-### ✅ Helyes parancsok:
-
-```bash
-# Fejlesztési mód indítása
-npm run tauri dev
-
-# Production build
-npm run tauri build
-```
-
-### ❌ Ne használd ezt:
-
-```bash
-# Ez NEM működik, mert a Tauri v2 CLI-t hívja meg
-cargo tauri dev
-```
-
-## NFC Címke Típusok
-
-### NTAG216
 - **Típus:** NFC Type 2 Tag (ISO14443A)
-- **Kapacitás:** 888 bytes (felhasználói adat)
+- **Kapacitás:** 888 bytes felhasználói adat
+- **Blokkok:** 135 blocks (4 bytes/block)
 - **Frekvencia:** 13.56 MHz
 - **Olvasási távolság:** ~10 cm
-- **Biztonság:** Alapvető védelem, jelszóval védhető
 
-**Használati esetek:**
-- ✅ Egyszerű adattárolás (URL-ek, szövegek, kontaktok)
-- ✅ NDEF formátumú üzenetek
-- ✅ Marketing kampányok (QR kód alternatíva)
-- ✅ Egyszerű belépési rendszerek
-- ✅ Termék információ tárolás
-- ✅ IoT eszköz konfiguráció
+## Előfeltételek
 
-**Előnyök:**
-- Olcsó és széleskörűen elérhető
-- Könnyen programozható
-- NDEF standard támogatás
-- Kompatibilis legtöbb NFC olvasóval
+### macOS
+- **PC/SC framework:** Beépített macOS-ben (nincs külön telepítés szükséges)
+- **ACS CCID Driver:** Ha ACS olvasót használsz (pl. ACR122U, ACR1251U), telepítsd az [ACS CCID Driver-t](https://www.acs.com.hk/en/driver/3/acr122u-usb-nfc-reader/) macOS-re
+  - A natív driver telepítése után az olvasó felismerhető lesz a PC/SC-n keresztül
+  - **Fontos:** A PC/SC API korlátai miatt bizonyos műveletek (pl. password védelem konfiguráció blokkok írása) nem mindig működnek még natív driverrel sem
 
-### Mifare Classic
-- **Típus:** ISO14443A
-- **Kapacitás:** 1KB (Mifare Classic 1K) vagy 4KB (Mifare Classic 4K)
-- **Frekvencia:** 13.56 MHz
-- **Olvasási távolság:** ~10 cm
-- **Biztonság:** Crypto1 titkosítás, kulcsokkal védett szektorok
-
-**Használati esetek:**
-- ✅ Közlekedési kártyák (BKK, MÁV)
-- ✅ Belépési rendszerek
-- ✅ Fizetési kártyák (régebbi rendszerek)
-- ✅ Szektor-alapú adattárolás
-- ✅ Biztonságos adattárolás kulcsokkal
-- ✅ Többszintű hozzáférés-vezérlés
-
-**Előnyök:**
-- Szektor-alapú szervezés
-- Kulcsokkal védett szektorok
-- Nagyobb kapacitás (4K verzió)
-- Széleskörűen használt (közlekedés, belépés)
-
-**Korlátok:**
-- Crypto1 titkosítás sebezhető (de még mindig használatos)
-- Komplexebb programozás
-- NDEF nem natív támogatás
-
-## Technikai Megközelítések
-
-### 1. Tauri NFC Plugin (Mobil - Android/iOS)
-A Tauri v2 rendelkezik beépített NFC pluginnal, de ez **csak mobil platformokon** működik:
-- Android
-- iOS
-
-**Korlátok:**
-- Csak NDEF formátumot támogat
-- NTAG216: ✅ Teljes támogatás
-- Mifare Classic: ⚠️ Korlátozott (csak NDEF, ha van)
-
-### 2. Desktop Megoldások (PC/Mac/Linux)
-
-Asztali platformokon nincs natív NFC támogatás a Tauri-ban. Lehetőségek:
-
-#### A) PC/SC (Smart Card) API
-- **Windows:** WinSCard API
-- **Linux:** PC/SC Lite
-- **macOS:** PC/SC framework
-
-#### B) Rust NFC Könyvtárak
-- `pcsc` - PC/SC wrapper Rust-ban
-- `nfc-rs` - Alacsony szintű NFC hozzáférés
-- `libnfc` binding-ek
-
-#### C) USB NFC Olvasók
-- ACR122U (ACS)
-- PN532 modulok
-- Legic Prime modulok
-
-## Projekt Struktúra
-
-```
-nfc-rust/
-├── src-tauri/
-│   ├── src/
-│   │   ├── main.rs          # Tauri entry point
-│   │   ├── nfc/
-│   │   │   ├── mod.rs       # NFC modul
-│   │   │   ├── ntag216.rs   # NTAG216 kezelés
-│   │   │   └── reader.rs    # PC/SC olvasó kezelés
-│   │   └── commands.rs      # Tauri command-ok
-│   ├── Cargo.toml
-│   └── tauri.conf.json
-├── src/                      # Frontend (HTML/JS)
-│   └── index.html
-├── package.json
-└── vite.config.js
+### Linux
+```bash
+sudo apt-get install pcscd libpcsclite1
+sudo systemctl start pcscd
 ```
 
-## Telepítés és Futtatás
+### Windows
+- PC/SC automatikusan telepítve
 
-### Előfeltételek
-
-1. **Rust telepítés:**
-   ```bash
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   ```
-
-2. **Node.js telepítés:**
-   - [Node.js letöltés](https://nodejs.org/)
-
-3. **PC/SC szolgáltatás:**
-   - **macOS:** Beépített (nincs külön telepítés)
-   - **Linux:** `sudo apt-get install pcscd libpcsclite1`
-   - **Windows:** Automatikusan telepítve
-
-### Projekt Telepítés
+## Telepítés
 
 ```bash
 # Függőségek telepítése
@@ -154,10 +43,10 @@ cargo build
 cd ..
 ```
 
-### Futtatás
+## Futtatás
 
 ```bash
-# Fejlesztési mód (használd ezt!)
+# Fejlesztési mód
 npm run tauri dev
 
 # Production build
@@ -168,69 +57,125 @@ npm run tauri build
 
 1. **NFC olvasó csatlakoztatása**
    - Csatlakoztasd az USB NFC olvasót a számítógéphez
-   - Az alkalmazás automatikusan felismeri
+   - Kattints az "Olvasók ellenőrzése" gombra
 
 2. **URL írása NTAG216 címkére**
    - Add meg az URL-t a beviteli mezőben
    - Kattints az "URL írása NTAG216 címkére" gombra
-   - Olvass be egy NTAG216 címkét az olvasóra
+   - Helyezd az NTAG216 címkét az olvasóra
    - Várd meg a sikeres írás üzenetet
 
-3. **URL olvasása és automatikus megnyitás**
+3. **URL olvasása NTAG216 címkéből**
    - Kattints az "URL olvasása NTAG216 címkéből" gombra
-   - Olvass be egy NTAG216 címkét az olvasóra
+   - Helyezd az NTAG216 címkét az olvasóra
    - Az URL automatikusan megnyílik a böngészőben
 
-## Implementációs Lehetőségek
+## Projekt Struktúra
 
-### NTAG216 Írás/Olvasás
-1. **NDEF üzenetek** - Standard NFC formátum
-2. **Raw byte írás** - Közvetlen memória írás
-3. **Password védelem** - Jelszóval védett írás
+```
+nfc-rust/
+├── src-tauri/
+│   ├── src/
+│   │   ├── main.rs          # Tauri entry point
+│   │   └── nfc/
+│   │       ├── mod.rs       # NFC modul
+│   │       ├── ntag216.rs   # NTAG216 specifikus implementáció
+│   │       └── reader.rs    # PC/SC olvasó kezelés
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+├── index.html               # Frontend UI
+├── package.json
+└── vite.config.js
+```
 
-### Mifare Classic Írás/Olvasás
-1. **Szektor olvasás/írás** - Kulcsokkal védett szektorok
-2. **Block írás** - 16 byte-os blokkok
-3. **Kulcs kezelés** - A/B kulcsok kezelése
-4. **Value block műveletek** - Növelés/csökkentés műveletek
+## Technikai Részletek
+
+### NDEF Formátum
+
+Az alkalmazás NDEF (NFC Data Exchange Format) formátumot használ az URL-ek tárolásához:
+- **Record Type:** Well Known Type (TNF=0x01)
+- **Type:** URI Record (U=0x55)
+- **Payload:** Prefix code + URL
+
+### PC/SC API
+
+- **APDU parancsok:** READ (0xFF 0xB0) és WRITE (0xFF 0xD6)
+- **Block méret:** 4 bytes
+- **User data:** Block 4-129 (126 blocks = 504 bytes)
+
+#### PC/SC API Korlátok
+
+⚠️ **Fontos:** A PC/SC API egy standardizált réteg, ami nem minden natív NFC funkciót támogat teljesen:
+
+- ✅ **Működik:** Block olvasás/írás (4-129), NDEF üzenetek írása/olvasása
+- ⚠️ **Korlátozottan működik:** Password védelem konfiguráció (Block 130-134)
+  - Block 130 (Password) írása általában működik
+  - Block 131-133 (PACK, ACCESS, Auth Limit) írása password beállítás után nem mindig működik PC/SC API-n keresztül
+  - **Password authentication (PWD_AUTH) nem működik az ACR122U-nál PC/SC API-n keresztül**
+  - Ez **nem az olvasó driver hibája**, hanem a PC/SC API standard korlátja
+- 💡 **Megoldás:** 
+  - A password beállítása (Block 130) általában elég a védelem aktiválásához, a többi blokk opcionális
+  - **Fontos:** Az ACR122U-nál password védelemmel védett címkéket csak password nélkül lehet írni/olvasni PC/SC API-n keresztül
+  - Password authentication működéséhez más NFC olvasó szükséges lehet
+
+**Miért van ez?**
+- A PC/SC API-t eredetileg smart card-okhoz tervezték, nem NFC címkékhez
+- Az NTAG216 password authentication speciális művelet, ami nem mindig illeszkedik a PC/SC standardhoz
+- Még az ACS CCID natív driver telepítése után is ezek a korlátok fennállhatnak
 
 ## Hibakeresés
 
 ### "Nincs NFC olvasó csatlakoztatva"
 - Ellenőrizd, hogy az USB olvasó csatlakoztatva van-e
+- **macOS + ACS olvasó:** Telepítsd az ACS CCID Driver-t
 - Linux: `pcsc_scan` parancs futtatása
-- Windows: Eszközkezelőben ellenőrizd
+- macOS: Rendszerbeállítások > Biztonság és adatvédelem
 
-### "Card connect error"
+### "Password védelem konfiguráció blokkok nem írhatók"
+- ⚠️ Ez egy ismert PC/SC API korlát
+- A Block 130 (Password) írása általában működik
+- A Block 131-133 írása password után nem mindig működik PC/SC API-n keresztül
+- **Ez nem az olvasó vagy driver hibája**, hanem a PC/SC API standard korlátja
+- A password beállítása (Block 130) általában elég a védelem aktiválásához
+
+### "Password authentication sikertelen (SW1=0x63, SW2=0x00)"
+- ⚠️ **Ismert korlát az ACR122U-nál**
+- Az ACR122U-nál az NTAG216 password authentication (PWD_AUTH) **nem működik PC/SC API-n keresztül**
+- Ez nem az olvasó vagy driver hibája, hanem a PC/SC API standard korlátja
+- **Megoldások:**
+  - Próbáld meg password nélkül írni/olvasni (ha lehet)
+  - Használj más NFC olvasót, ami támogatja az NTAG216 password authentication-t
+  - Vagy használj natív NFC driver-t (nem PC/SC API)
+
+### "Ez nem egy NTAG216 címke!"
+- Győződj meg róla, hogy NTAG216 címkét használsz
+- Más NFC típusok (pl. Mifare Classic) nem támogatottak
+
+### "Csatlakozási hiba"
 - A címke nincs az olvasó közelében
-- Próbáld meg újra
+- Próbáld meg újra, és biztosítsd, hogy a címke az olvasóra van helyezve
 
-### "Write failed" vagy "Read failed"
-- A címke lehet, hogy read-only módban van
-- Ellenőrizd, hogy NTAG216 címkét használsz-e
+## Dokumentáció
 
-## CI/CD - GitHub Actions
+📚 **Részletes dokumentáció:** [`NTAG216_DOKUMENTACIO.md`](NTAG216_DOKUMENTACIO.md)
+- Teljes működési leírás
+- Technikai specifikációk
+- APDU parancsok részletei
+- Implementáció részletei
+- További lehetőségek
 
-A projekt automatikusan fordít mindhárom platformra (Windows, Linux, macOS) GitHub Actions segítségével.
+📋 **Gyors összefoglaló:** [`NTAG216_OSSZEFOGLALO.md`](NTAG216_OSSZEFOGLALO.md)
+- Gyors áttekintés
+- Főbb jellemzők
+- Kód példák
+- Gyakori hibák
 
-### Automatikus Build
+🔐 **Configuration blokkok útmutató:** [`CONFIGURATION_BLOKKOK.md`](CONFIGURATION_BLOKKOK.md)
+- Block 130-134 részletes magyarázata
+- Password védelem beállítása
+- Read-only mód
+- Vizuális ábrák
 
-Minden push a `main` vagy `master` branch-re automatikusan elindítja a build folyamatot:
-- **macOS:** x86_64 és aarch64 (Apple Silicon) verziók
-- **Linux:** AppImage formátum
-- **Windows:** MSI installer
+## Licenc
 
-### Release-ek
-
-A sikeres build után automatikusan létrejön egy GitHub Release draft verzió, amely tartalmazza az összes platform build fájljait.
-
-### Workflow fájl
-
-A build konfiguráció a `.github/workflows/build.yml` fájlban található.
-
-## További Információk
-
-- `COMPARISON.md` - Részletes összehasonlítás NTAG216 vs Mifare Classic
-- `IMPLEMENTATION_GUIDE.md` - Implementációs útmutató kóddal
-- `OSSZEFOGLALO.md` - Rövid összefoglaló válaszokkal
-- `INSTALLATION.md` - Telepítési útmutató
+MIT

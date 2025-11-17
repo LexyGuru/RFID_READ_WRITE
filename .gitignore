@@ -25,17 +25,9 @@ dist-ssr
 
 # Tauri
 src-tauri/target
-src-tauri/target-*
+src-tauri/Cargo.lock
 
-# Build artifacts
-*.dmg
-*.AppImage
-*.deb
-*.rpm
-*.msi
-*.exe
-*.zip
-*.tar.gz
+
 
 
 

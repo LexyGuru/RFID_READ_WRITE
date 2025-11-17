@@ -1,7 +1,6 @@
 {
   "name": "nfc-rust",
   "version": "0.1.0",
-  "description": "Tauri NFC app for NTAG216 URL writing",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,5 +16,7 @@
     "vite": "^7.2.2"
   }
 }
+
+
 
 

@@ -1,87 +1,60 @@
-use pcsc::*;
-use std::time::Duration;
+use anyhow::{Context, Result};
+use pcsc::{Card, Context as PcscContext, Protocols, Scope, ShareMode};
 
-pub struct NFCReader {
-    ctx: Context,
+pub struct NfcReader {
+    ctx: PcscContext,
 }
 
-#[derive(Debug)]
-pub enum NFCError {
-    ContextError(String),
-    NoReaderFound,
-    CardError(String),
-    Timeout,
-}
-
-impl NFCReader {
-    pub fn new() -> Result<Self, NFCError> {
-        let ctx = Context::establish(Scope::User)
-            .map_err(|e| NFCError::ContextError(format!("PC/SC context error: {}", e)))?;
-        Ok(NFCReader { ctx })
+impl NfcReader {
+    pub fn new() -> Result<Self> {
+        let ctx = PcscContext::establish(Scope::User)
+            .context("Nem sikerült csatlakozni a PC/SC szolgáltatáshoz")?;
+        
+        Ok(NfcReader { ctx })
     }
 
-    pub fn list_readers(&self) -> Result<Vec<String>, NFCError> {
+    pub fn connect(&self) -> Result<Card> {
+        println!("  📡 NfcReader::connect() CALLED");
         let mut buffer = [0u8; 2048];
-        let readers = self.ctx.list_readers(&mut buffer)
-            .map_err(|e| NFCError::ContextError(format!("List readers error: {}", e)))?;
+        println!("  📋 Olvasók listázása...");
+        let mut readers = self.ctx.list_readers(&mut buffer)
+            .context("Nem sikerült listázni az olvasókat")?;
         
-        Ok(readers
-            .map(|r| r.to_string_lossy().to_string())
-            .collect())
-    }
-
-    pub fn connect(&self, reader_name: Option<&str>) -> Result<Card, NFCError> {
-        let readers = self.list_readers()?;
+        println!("  🔍 Olvasók keresése...");
+        // ReaderNames már egy iterator-like struktúra
+        let reader = readers
+            .next()
+            .ok_or_else(|| {
+                println!("  ❌ Nincs NFC olvasó csatlakoztatva");
+                anyhow::anyhow!("Nincs NFC olvasó csatlakoztatva")
+            })?;
         
-        if readers.is_empty() {
-            return Err(NFCError::NoReaderFound);
-        }
-
-        let reader_name = reader_name
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| readers[0].clone());
-
-        let mut buffer = [0u8; 2048];
-        let reader = self.ctx
-            .list_readers(&mut buffer)
-            .map_err(|e| NFCError::ContextError(format!("List readers error: {}", e)))?
-            .find(|r| r.to_string_lossy() == reader_name)
-            .ok_or(NFCError::NoReaderFound)?;
-
-        let card = self.ctx
-            .connect(reader, ShareMode::Shared, Protocols::ANY)
-            .map_err(|e| NFCError::CardError(format!("Card connect error: {}", e)))?;
-
+        println!("  ✅ Olvasó találva: {:?}", reader);
+        println!("  🔌 Címke csatlakoztatása...");
+        let card = self.ctx.connect(&reader, ShareMode::Shared, Protocols::ANY)
+            .context("Nem sikerült csatlakozni az NFC címkéhez. Kérlek helyezd a címkét az olvasóra.")?;
+        
+        println!("  ✅ Címke csatlakoztatva");
         Ok(card)
     }
 
-    pub fn wait_for_card(&self, timeout: Duration) -> Result<Card, NFCError> {
-        let readers = self.list_readers()?;
+    pub fn list_readers(&self) -> Result<Vec<String>> {
+        let mut buffer = [0u8; 2048];
+        let mut readers = self.ctx.list_readers(&mut buffer)
+            .context("Nem sikerült listázni az olvasókat")?;
         
-        if readers.is_empty() {
-            return Err(NFCError::NoReaderFound);
+        // ReaderNames már egy iterator-like struktúra, CStr-t String-gé konvertáljuk
+        let mut result = Vec::new();
+        for reader in readers {
+            result.push(reader.to_string_lossy().to_string());
         }
+        Ok(result)
+    }
+}
 
-        // Wait for card presence - próbálkozunk kapcsolódással timeout-ig
-        let start = std::time::Instant::now();
-        loop {
-            let mut buffer = [0u8; 2048];
-            let reader = self.ctx
-                .list_readers(&mut buffer)
-                .map_err(|e| NFCError::ContextError(format!("List readers error: {}", e)))?
-                .next()
-                .ok_or(NFCError::NoReaderFound)?;
-
-            match self.ctx.connect(reader, ShareMode::Shared, Protocols::ANY) {
-                Ok(card) => return Ok(card),
-                Err(_) => {
-                    if start.elapsed() >= timeout {
-                        return Err(NFCError::Timeout);
-                    }
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-                }
-            }
-        }
+impl Default for NfcReader {
+    fn default() -> Self {
+        Self::new().expect("Nem sikerült inicializálni az NFC olvasót")
     }
 }
 

@@ -1,6 +1,6 @@
 {
   "package": {
-    "productName": "NFC Rust",
+    "productName": "NTAG216 NFC",
     "version": "0.1.0"
   },
   "build": {
@@ -29,7 +29,7 @@
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "NFC Rust - NTAG216 URL Writer",
+        "title": "NTAG216 NFC",
         "width": 800,
         "height": 600
       }
